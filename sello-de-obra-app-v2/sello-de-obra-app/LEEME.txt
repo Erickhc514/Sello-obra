@@ -1,0 +1,63 @@
+SELLO DE OBRA — App instalable (PC y celular)
+=============================================
+
+Esta carpeta es la app completa. Para poder instalarla en el celular y en la PC
+tiene que estar publicada en una dirección https. Es gratis y se hace una sola vez.
+
+
+OPCIÓN A — GitHub Pages (recomendada, queda permanente)
+-------------------------------------------------------
+1. Crea una cuenta en https://github.com (puedes usar tu correo de la UNSAAC).
+2. Botón "+" > "New repository". Nombre: sello-obra. Márcalo como Public. Create.
+3. En el repositorio vacío, haz clic en "uploading an existing file".
+4. Arrastra TODO el contenido de esta carpeta (index.html, sw.js,
+   manifest.webmanifest y las carpetas fonts, icons y vendor). Commit changes.
+5. Ve a Settings > Pages. En "Branch" elige "main" y "/ (root)". Save.
+6. En 1–2 minutos tu app estará en:
+      https://TU-USUARIO.github.io/sello-obra/
+
+
+OPCIÓN B — Netlify (más rápida)
+-------------------------------
+1. Entra a https://app.netlify.com/drop e inicia sesión (gratis).
+2. Arrastra esta carpeta completa a la página.
+3. Te da una dirección tipo https://algo.netlify.app — esa es tu app.
+
+
+INSTALAR
+--------
+• Android (Chrome): abre la dirección > aparece "Instalar app" en la página,
+  o menú ⋮ > "Instalar aplicación" / "Agregar a pantalla principal".
+• PC (Chrome o Edge): abre la dirección > ícono de instalar en la barra de
+  direcciones, o el botón "Instalar app" de la página.
+• iPhone (Safari): botón Compartir > "Agregar a pantalla de inicio".
+
+Después de instalarla funciona SIN INTERNET (en obra, por ejemplo).
+
+
+USO EN EL CELULAR (Android)
+---------------------------
+• Desde la Galería o Google Fotos: selecciona las fotos > Compartir > "Sello Obra".
+  Se abren directamente en la app.
+• "Compartir todas" envía las fotos ya selladas a WhatsApp, Drive, correo, etc.
+• IMPORTANTE: activa la ubicación en la app de Cámara para que las fotos
+  guarden GPS. Algunas apps (WhatsApp, Facebook) borran el GPS y la fecha de
+  las fotos; usa siempre las fotos originales de la cámara.
+• Las fotos HEIC (iPhone) hay que pasarlas a JPG primero.
+
+
+ACTUALIZAR LA APP EN GITHUB (versión 2)
+---------------------------------------
+1. En tu repositorio entra a la carpeta  sello-de-obra-app.
+2. Add file > Upload files.
+3. Arrastra TODO el contenido de esta carpeta (los archivos sueltos y las
+   carpetas fonts, icons y vendor). Los que tienen el mismo nombre se reemplazan.
+4. Commit changes. En 1–2 minutos la app se actualiza sola; si ya la tenías
+   instalada, aparecerá "Hay una versión nueva" > Actualizar ahora.
+(El archivo viejo vendor/jszip.min.js ya no se usa; puedes borrarlo o dejarlo.)
+
+Para la próxima actualización cambia en sw.js  VERSION = "sello-v2"  por "sello-v3".
+
+Probar en tu PC sin publicar: en esta carpeta ejecuta
+   python -m http.server 8000
+y abre http://localhost:8000

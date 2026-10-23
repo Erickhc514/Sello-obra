@@ -1,0 +1,1023 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Sello de Obra</title>
+<meta name="description" content="Marca de agua con ubicación, ciudad, fecha y coordenadas UTM para fotos de obra.">
+<meta name="theme-color" content="#141d26">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icons/favicon-48.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<style>
+@font-face{font-family:"Archivo";font-weight:400;font-style:normal;font-display:swap;src:url(fonts/archivo-latin-400-normal.woff2) format("woff2")}
+@font-face{font-family:"Archivo";font-weight:400;font-style:italic;font-display:swap;src:url(fonts/archivo-latin-400-italic.woff2) format("woff2")}
+@font-face{font-family:"Archivo";font-weight:500;font-style:normal;font-display:swap;src:url(fonts/archivo-latin-500-normal.woff2) format("woff2")}
+@font-face{font-family:"Archivo";font-weight:600;font-style:normal;font-display:swap;src:url(fonts/archivo-latin-600-normal.woff2) format("woff2")}
+@font-face{font-family:"Archivo";font-weight:700;font-style:normal;font-display:swap;src:url(fonts/archivo-latin-700-normal.woff2) format("woff2")}
+@font-face{font-family:"Archivo";font-weight:800;font-style:normal;font-display:swap;src:url(fonts/archivo-latin-800-normal.woff2) format("woff2")}
+@font-face{font-family:"IBM Plex Mono";font-weight:400;font-style:normal;font-display:swap;src:url(fonts/ibm-plex-mono-latin-400-normal.woff2) format("woff2")}
+@font-face{font-family:"IBM Plex Mono";font-weight:500;font-style:normal;font-display:swap;src:url(fonts/ibm-plex-mono-latin-500-normal.woff2) format("woff2")}
+/* Layout: panel de ajustes (libreta de campo) a la izquierda, barra de exportación + cuadrícula de fotos a la derecha; en móvil se apila */
+:root{
+  --bg:#eaeef1; --surface:#ffffff; --sunk:#f4f6f8; --ink:#141d26; --muted:#5a6774; --line:#d3dae0;
+  --accent:#c98600; --accent-ink:#1b1300; --ok:#2f7d4f; --warn:#b4541a; --err:#b42318;
+  --f-ui:"Archivo",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --f-data:"IBM Plex Mono",ui-monospace,"Cascadia Mono",Consolas,monospace;
+  padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0e141a; --surface:#172029; --sunk:#111920; --ink:#e4eaef; --muted:#93a1ad; --line:#293541;
+  --accent:#f0b429; --accent-ink:#1b1300; --ok:#5cc28a; --warn:#f08a4b; --err:#ff7b6b; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0e141a; --surface:#172029; --sunk:#111920; --ink:#e4eaef; --muted:#93a1ad; --line:#293541;
+  --accent:#f0b429; --accent-ink:#1b1300; --ok:#5cc28a; --warn:#f08a4b; --err:#ff7b6b; color-scheme:dark}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--f-ui);font-size:14px;line-height:1.45;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:18px 40px}
+.wrap{max-width:1360px;margin:0 auto;display:grid;gap:16px}
+header.top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px}
+h1{font-size:26px;font-weight:800;letter-spacing:-.01em;margin:0;text-wrap:balance}
+h1 small{display:block;font-family:var(--f-data);font-size:11px;font-weight:500;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:2px}
+.actions,.btnrow{display:flex;flex-wrap:wrap;gap:8px}
+.btn{font:600 14px var(--f-ui);border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:9px 14px;border-radius:6px;cursor:pointer;display:inline-flex;align-items:center;gap:8px;white-space:nowrap}
+.btn:hover{border-color:var(--muted)}
+.btn.sm{padding:6px 10px;font-size:13px}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.primary:hover{filter:brightness(1.05)}
+.btn.danger{color:var(--err)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible,.pv:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.layout{display:grid;grid-template-columns:340px minmax(0,1fr);gap:16px;align-items:start}
+@media (max-width:880px){.layout{grid-template-columns:1fr}}
+aside.panel{background:var(--surface);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+details.sec{border-top:1px solid var(--line)}
+details.sec:first-child{border-top:0}
+details.sec>summary{list-style:none;cursor:pointer;padding:12px 16px;font-family:var(--f-data);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);display:flex;justify-content:space-between;align-items:center}
+details.sec>summary::-webkit-details-marker{display:none}
+details.sec>summary::after{content:"+";font-size:15px;letter-spacing:0}
+details.sec[open]>summary::after{content:"–"}
+.secbody{padding:0 16px 14px;display:grid;gap:10px;min-width:0}
+label.f{display:grid;gap:4px;font-weight:500;font-size:13px;min-width:0}
+input[type=text],input[type=number],input[type=datetime-local],select{width:100%;font:14px var(--f-ui);color:var(--ink);background:var(--sunk);border:1px solid var(--line);border-radius:5px;padding:7px 9px;min-width:0}
+input[type=number]{font-family:var(--f-data);font-size:13px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.row3{display:grid;grid-template-columns:.7fr .8fr 1fr;gap:8px}
+.checks{display:grid;grid-template-columns:1fr 1fr;gap:6px 10px}
+.checks label,.inl{display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer}
+input[type=checkbox],input[type=radio]{accent-color:var(--accent);width:16px;height:16px;margin:0}
+.seg{display:flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.seg label{flex:1;text-align:center;font-size:12.5px;padding:6px 4px;cursor:pointer;background:var(--sunk);position:relative}
+.seg input{position:absolute;opacity:0;pointer-events:none}
+.seg label:has(input:checked){background:var(--accent);color:var(--accent-ink);font-weight:600}
+.seg label:has(input:focus-visible){outline:2px solid var(--accent);outline-offset:-2px}
+.hint{font-size:12px;color:var(--muted)}
+input[type=range]{width:100%;accent-color:var(--accent)}
+.rangeval{font-family:var(--f-data);font-size:12px;color:var(--muted);font-weight:400}
+main.board{display:grid;gap:12px;min-width:0}
+.banner{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;justify-content:space-between;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px 14px}
+.banner p{margin:0;font-size:13px;color:var(--muted);max-width:70ch}
+.drop{border:1.5px dashed var(--line);border-radius:8px;padding:12px 16px;background:var(--surface)}
+.drop.over{border-color:var(--accent);background:var(--sunk)}
+.drop p{margin:0;color:var(--muted);max-width:75ch}
+.xbar{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:12px 14px;display:grid;gap:10px}
+.xrow{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;justify-content:space-between}
+.stats{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font-family:var(--f-data);font-size:11.5px;padding:3px 8px;border-radius:99px;border:1px solid var(--line);background:var(--sunk);color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums}
+.chip.ok{color:var(--ok);border-color:color-mix(in srgb,var(--ok) 40%,var(--line))}
+.chip.warn{color:var(--warn);border-color:color-mix(in srgb,var(--warn) 40%,var(--line))}
+.chip.ex{color:var(--accent-ink);background:var(--accent);border-color:var(--accent)}
+.prog{display:grid;gap:6px}
+.progress{height:8px;border-radius:4px;background:var(--line);overflow:hidden}
+.progress>i{display:block;height:100%;width:0;background:var(--accent);transition:width .2s}
+.progtxt{display:flex;flex-wrap:wrap;justify-content:space-between;gap:6px;font-family:var(--f-data);font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.msg{font-size:13px;color:var(--muted)}
+.msg.err{color:var(--err)}
+.dls{display:flex;flex-wrap:wrap;gap:8px}
+.toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between}
+.toolbar .grp{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.toolbar select{width:auto}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:8px;overflow:hidden;display:grid;grid-template-rows:auto 1fr}
+.card.off{opacity:.5}
+.card.fail{border-color:var(--err)}
+.pv{all:unset;cursor:pointer;display:flex;align-items:center;justify-content:center;aspect-ratio:4/3;background:var(--sunk);position:relative;max-width:100%}
+.pv canvas{max-width:100%;max-height:100%;display:block}
+.pv .ph{font-family:var(--f-data);font-size:11px;color:var(--muted)}
+.pv .num{position:absolute;top:6px;left:6px;font-family:var(--f-data);font-size:11px;background:var(--accent);color:var(--accent-ink);padding:1px 6px;border-radius:4px;font-weight:500}
+.card .meta{padding:8px 10px 10px;display:grid;gap:6px;min-width:0;align-content:start}
+.card .sel{display:flex;gap:7px;align-items:center;min-width:0;cursor:pointer}
+.card .name{font-weight:600;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.card .tags{display:flex;flex-wrap:wrap;gap:4px;align-items:flex-start}
+dialog{border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);padding:0;width:min(1140px,calc(100vw - 24px));max-height:calc(100vh - 24px)}
+dialog::backdrop{background:rgba(5,10,15,.6)}
+.dlg{display:grid;grid-template-columns:minmax(0,1fr) 310px;max-height:calc(100vh - 26px)}
+@media (max-width:760px){.dlg{grid-template-columns:minmax(0,1fr);overflow:auto}.dlg .side{border-left:0}}
+.dlg .side,.dlg .side>*{min-width:0}
+.dlg .btn{white-space:normal;text-align:left}
+.dlg .view{background:#0b0f13;display:flex;align-items:center;justify-content:center;min-height:240px;overflow:auto}
+.dlg .view canvas{max-width:100%;max-height:calc(100vh - 40px);display:block}
+.dlg .side{padding:16px;display:grid;gap:10px;align-content:start;overflow:auto;border-left:1px solid var(--line)}
+.dlg h2{margin:0;font-size:16px;word-break:break-all}
+.mono{font-family:var(--f-data);font-size:12px;color:var(--muted);white-space:pre-line}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1><small>Fotografías de campo · UTM WGS84</small>Sello de Obra</h1>
+    <div class="actions">
+      <button class="btn" id="btnFolder" type="button">Elegir carpeta</button>
+      <button class="btn" id="btnFiles" type="button">Agregar fotos</button>
+      <button class="btn danger" id="btnClear" type="button" hidden>Vaciar lista</button>
+    </div>
+    <input type="file" id="inFolder" webkitdirectory directory multiple hidden>
+    <input type="file" id="inFiles" accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp" multiple hidden>
+    <input type="file" id="inLogo" accept="image/png,image/jpeg,image/webp,image/svg+xml" hidden>
+  </header>
+
+  <div class="banner" id="installBar" hidden>
+    <p>Instala Sello de Obra en este dispositivo para abrirla como una app, sin barra del navegador y sin internet.</p>
+    <div class="btnrow"><button class="btn primary" id="btnInstall" type="button">Instalar app</button><button class="btn" id="btnInstallX" type="button">Ahora no</button></div>
+  </div>
+  <div class="banner" id="updateBar" hidden>
+    <p>Hay una versión nueva de la app lista.</p>
+    <div class="btnrow"><button class="btn primary" id="btnReload" type="button">Actualizar ahora</button></div>
+  </div>
+
+  <div class="layout">
+    <aside class="panel" id="settings">
+      <details class="sec" open>
+        <summary>Texto del sello</summary>
+        <div class="secbody">
+          <label class="f">Título / proyecto<input type="text" id="sTitle" value="Proyecto: Vivienda multifamiliar" placeholder="Ej. Obra: Residencial ..."></label>
+          <label class="f">Ubicación<input type="text" id="sUbic" value="Av. de la Cultura, Wánchaq" placeholder="Dirección, frente, sector"></label>
+          <div class="f" style="display:grid;gap:4px"><span style="font-weight:500;font-size:13px">Ciudad</span>
+            <div class="seg" role="radiogroup" aria-label="Modo de ciudad">
+              <label><input type="radio" name="cityMode" id="cityAuto" value="auto" checked>Automática</label>
+              <label><input type="radio" name="cityMode" id="cityManual" value="manual">Escribir</label>
+            </div>
+            <input type="text" id="sCity" value="Cusco, Perú" placeholder="Ciudad, región" aria-label="Ciudad">
+            <span class="hint">Automática usa el distrito o ciudad más cercano a las coordenadas de cada foto.</span>
+          </div>
+          <label class="f">Nota (va en todas las fotos)<input type="text" id="sNote" value="" placeholder="Ej. Responsable: Ing. ... · Partida 02.01"></label>
+          <div class="row2">
+            <label class="f">Rótulo del número<input type="text" id="numLabel" value="Foto N°"></label>
+            <label class="f">Empezar en<input type="number" id="numStart" value="1" min="0" step="1"></label>
+          </div>
+        </div>
+      </details>
+
+      <details class="sec" open>
+        <summary>Qué mostrar</summary>
+        <div class="secbody">
+          <div class="checks">
+            <label><input type="checkbox" id="shTitle" checked>Título</label>
+            <label><input type="checkbox" id="shNum">N° de foto</label>
+            <label><input type="checkbox" id="shUbic" checked>Ubicación</label>
+            <label><input type="checkbox" id="shCity" checked>Ciudad</label>
+            <label><input type="checkbox" id="shDate" checked>Fecha y hora</label>
+            <label><input type="checkbox" id="shUtm" checked>Coord. UTM</label>
+            <label><input type="checkbox" id="shGeo">Lat / Lon</label>
+            <label><input type="checkbox" id="shAlt" checked>Altitud</label>
+            <label><input type="checkbox" id="shDir">Orientación</label>
+            <label><input type="checkbox" id="shDesc" checked>Descripción</label>
+            <label><input type="checkbox" id="shNote" checked>Nota</label>
+          </div>
+          <span class="hint">La descripción se escribe por foto (haz clic en la foto). La orientación sale de la brújula del celular, si la cámara la guardó.</span>
+        </div>
+      </details>
+
+      <details class="sec">
+        <summary>Si la foto no tiene GPS</summary>
+        <div class="secbody">
+          <div class="seg" role="radiogroup" aria-label="Coordenadas por defecto">
+            <label><input type="radio" name="defMode" id="defUtm" value="utm" checked>UTM</label>
+            <label><input type="radio" name="defMode" id="defGeo" value="geo">Lat / Lon</label>
+            <label><input type="radio" name="defMode" id="defNone" value="none">No poner</label>
+          </div>
+          <div class="row3" id="defUtmBox">
+            <label class="f">Zona<input type="number" id="dZone" value="19" min="1" max="60"></label>
+            <label class="f">Hemisf.<select id="dHem"><option value="S" selected>Sur</option><option value="N">Norte</option></select></label>
+            <span></span>
+            <label class="f">Este (m)<input type="number" id="dE" value="179880" step="1"></label>
+            <label class="f" style="grid-column:span 2">Norte (m)<input type="number" id="dN" value="8502860" step="1"></label>
+          </div>
+          <div class="row2" id="defGeoBox" hidden>
+            <label class="f">Latitud<input type="number" id="dLat" value="-13.5226" step="0.000001"></label>
+            <label class="f">Longitud<input type="number" id="dLon" value="-71.9673" step="0.000001"></label>
+          </div>
+          <label class="f">Fecha si no hay EXIF
+            <select id="dDate"><option value="file" selected>Fecha de modificación del archivo</option><option value="none">No poner fecha</option></select>
+          </label>
+        </div>
+      </details>
+
+      <details class="sec">
+        <summary>Apariencia</summary>
+        <div class="secbody">
+          <label class="f">Posición
+            <select id="sPos">
+              <option value="bl" selected>Abajo a la izquierda</option><option value="br">Abajo a la derecha</option>
+              <option value="tl">Arriba a la izquierda</option><option value="tr">Arriba a la derecha</option>
+              <option value="band">Franja inferior completa</option>
+            </select>
+          </label>
+          <label class="f">Estilo
+            <select id="sStyle"><option value="box" selected>Recuadro oscuro translúcido</option><option value="light">Recuadro claro</option><option value="shadow">Solo texto con sombra</option></select>
+          </label>
+          <label class="f">Opacidad del recuadro <span class="rangeval" id="opVal"></span><input type="range" id="sOpacity" min="0.25" max="0.9" step="0.05" value="0.62"></label>
+          <label class="f">Tamaño del texto <span class="rangeval" id="sizeVal"></span><input type="range" id="sSize" min="1.2" max="5" step="0.1" value="2.4"></label>
+          <label class="f">Color de acento
+            <select id="sAccent"><option value="#f0b429" selected>Ámbar</option><option value="#ff6b2c">Naranja seguridad</option><option value="#3fb6ff">Celeste</option><option value="#5cd68f">Verde</option><option value="#ff4d6d">Rojo</option><option value="#ffffff">Blanco</option></select>
+          </label>
+          <div class="btnrow"><button class="btn sm" type="button" id="btnLogo">Agregar logo</button><button class="btn sm" type="button" id="btnLogoX" hidden>Quitar logo</button></div>
+        </div>
+      </details>
+
+      <details class="sec">
+        <summary>Exportación</summary>
+        <div class="secbody">
+          <label class="f">Tamaño de las fotos
+            <select id="sMax">
+              <option value="0" selected>Original (máxima calidad)</option>
+              <option value="4000">4000 px (lado mayor)</option>
+              <option value="3000">3000 px</option>
+              <option value="2048">2048 px (informes, WhatsApp)</option>
+              <option value="1600">1600 px (liviano)</option>
+            </select>
+          </label>
+          <label class="f">Calidad JPG <span class="rangeval" id="qVal"></span><input type="range" id="sQ" min="0.6" max="1" step="0.02" value="0.9"></label>
+          <label class="f">Nombre de los archivos
+            <select id="sName">
+              <option value="orig" selected>Nombre original + _sello</option>
+              <option value="num">N° + nombre original</option>
+              <option value="date">Fecha_hora + N°</option>
+            </select>
+          </label>
+          <label class="f">Prefijo (opcional)<input type="text" id="sPrefix" value="" placeholder="Ej. AURORA_"></label>
+          <label class="f">Dividir el ZIP cada
+            <select id="sPart"><option value="250">250 MB</option><option value="500" selected>500 MB</option><option value="1000">1 GB</option><option value="1900">1,9 GB</option></select>
+          </label>
+          <label class="inl"><input type="checkbox" id="keepExif" checked>Conservar los datos EXIF (GPS, fecha, cámara)</label>
+          <label class="inl"><input type="checkbox" id="incPts" checked>Incluir lista de puntos (Excel CSV y KML para Google Earth)</label>
+        </div>
+      </details>
+    </aside>
+
+    <main class="board">
+      <div class="drop" id="drop">
+        <p>Arrastra aquí una carpeta o fotos, o usa <b>Elegir carpeta</b>. Se leen fecha, hora, GPS y brújula del EXIF. Todo se procesa en tu dispositivo; las fotos no se suben a ningún lado.</p>
+      </div>
+
+      <section class="xbar" aria-label="Exportar">
+        <div class="xrow">
+          <div class="stats" id="stats"></div>
+          <div class="btnrow">
+            <button class="btn primary" id="btnZip" type="button" disabled>Exportar ZIP</button>
+            <button class="btn" id="btnDir" type="button" hidden disabled>Guardar en carpeta</button>
+            <button class="btn" id="btnShare" type="button" hidden disabled>Compartir</button>
+          </div>
+        </div>
+        <div class="prog" id="prog" hidden>
+          <div class="progress"><i id="progBar"></i></div>
+          <div class="progtxt"><span id="progA"></span><span id="progB"></span></div>
+          <div class="btnrow"><button class="btn sm danger" id="btnCancel" type="button">Cancelar</button></div>
+        </div>
+        <div class="msg" id="msg" role="status"></div>
+        <div class="dls" id="dls"></div>
+      </section>
+
+      <div class="toolbar" id="toolbar">
+        <div class="grp">
+          <button class="btn sm" id="selAll" type="button">Seleccionar todas</button>
+          <button class="btn sm" id="selNone" type="button">Ninguna</button>
+        </div>
+        <div class="grp">
+          <label class="inl" for="sOrder">Orden</label>
+          <select id="sOrder"><option value="name" selected>Por nombre</option><option value="date">Por fecha y hora</option></select>
+        </div>
+      </div>
+      <div class="grid" id="grid"></div>
+    </main>
+  </div>
+</div>
+
+<dialog id="dlg">
+  <div class="dlg">
+    <div class="view"><canvas id="bigCanvas"></canvas></div>
+    <div class="side">
+      <h2 id="dName"></h2>
+      <div class="mono" id="dExif"></div>
+      <label class="f">Descripción de esta foto<input type="text" id="oDesc" placeholder="Ej. Vaciado de losa 2.° piso, eje B-C"></label>
+      <label class="f">Ubicación de esta foto<input type="text" id="oUbic" placeholder="Vacío = usar la general"></label>
+      <div class="row2">
+        <label class="f">Latitud<input type="number" id="oLat" step="0.000001" placeholder="EXIF / general"></label>
+        <label class="f">Longitud<input type="number" id="oLon" step="0.000001" placeholder="EXIF / general"></label>
+      </div>
+      <label class="f">Fecha y hora<input type="datetime-local" id="oDate"></label>
+      <label class="inl"><input type="checkbox" id="oSel">Incluir en la exportación</label>
+      <div class="btnrow">
+        <button class="btn primary" type="button" id="oApply">Aplicar</button>
+        <button class="btn" type="button" id="oCopy">Copiar descripción y ubicación a las seleccionadas</button>
+        <button class="btn" type="button" id="oReset">Restablecer</button>
+      </div>
+      <div class="btnrow">
+        <button class="btn" type="button" id="oPrev">‹ Anterior</button>
+        <button class="btn" type="button" id="oNext">Siguiente ›</button>
+        <button class="btn" type="button" id="oSave">Descargar esta foto</button>
+        <button class="btn" type="button" id="oClose">Cerrar</button>
+      </div>
+      <div class="msg" id="dMsg"></div>
+    </div>
+  </div>
+</dialog>
+
+<script src="vendor/exifr.lite.umd.js"></script>
+<script src="stamp.js"></script>
+<script>
+(function(){
+"use strict";
+const $=id=>document.getElementById(id);
+const {toUTM,fromUTM,nearestCity,fmtDate,grp,pad,dirName}=Sello;
+const UA=navigator.userAgent;
+const isIOS=/iPhone|iPad|iPod/i.test(UA)||(navigator.maxTouchPoints>1&&/Mac/.test(navigator.platform||""));
+const isMobile=isIOS||/Android|Mobile/i.test(UA);
+const MAX_PIX=isIOS?16.7e6:120e6;
+const THUMB=360;
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const toLocalInput=d=>d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate())+"T"+pad(d.getHours())+":"+pad(d.getMinutes());
+const fmtBytes=b=>b>=1073741824?(b/1073741824).toFixed(2)+" GB":b>=1048576?(b/1048576).toFixed(0)+" MB":Math.max(1,Math.round(b/1024))+" KB";
+const fmtTime=s=>{s=Math.max(0,Math.round(s));return s<60?s+" s":Math.floor(s/60)+" min "+pad(s%60)+" s";};
+
+/* ================= Procesadores en segundo plano ================= */
+const Pool={workers:[],thumbOK:false,renderOK:false,hi:[],lo:[],seq:0,pending:new Map(),logoBmp:null};
+function spawnWorker(){
+  return new Promise(res=>{
+    let w;try{w=new Worker("worker.js");}catch(e){res(null);return;}
+    const t=setTimeout(()=>{try{w.terminate();}catch(e){}res(null);},10000);
+    w.onmessage=e=>{if(e.data&&e.data.type==="init"){clearTimeout(t);if(e.data.ok)res({w,fonts:e.data.fonts,busy:null});else{w.terminate();res(null);}}};
+    w.onerror=()=>{clearTimeout(t);res(null);};
+    w.postMessage({type:"init"});
+  });
+}
+function wire(slot){
+  slot.w.onmessage=e=>{
+    const d=e.data,job=slot.busy;slot.busy=null;
+    if(job&&d.id===job.id){d.ok?job.resolve(d):job.reject(new Error(d.error||"Error"));}
+    pump();
+  };
+  slot.w.onerror=async ev=>{
+    ev.preventDefault&&ev.preventDefault();
+    const job=slot.busy;slot.busy=null;
+    try{slot.w.terminate();}catch(e){}
+    const i=Pool.workers.indexOf(slot);if(i>=0)Pool.workers.splice(i,1);
+    if(job)job.reject(new Error("Sin memoria para esta foto. Prueba con un tamaño de exportación menor."));
+    const n=await spawnWorker();if(n){wire(n);Pool.workers.push(n);if(Pool.logoBmp)n.w.postMessage({type:"logo",bitmap:Pool.logoBmp});}
+    pump();
+  };
+}
+async function initPool(){
+  if(!window.Worker||location.protocol==="file:")return;
+  const cores=navigator.hardwareConcurrency||2,mem=navigator.deviceMemory||4;
+  let n=isMobile?1:Math.max(1,Math.min(3,Math.floor(cores/2)));
+  if(mem<=4&&!isMobile)n=Math.min(n,2);
+  const first=await spawnWorker();if(!first)return;
+  wire(first);Pool.workers.push(first);Pool.thumbOK=true;Pool.renderOK=!!first.fonts;
+  for(let i=1;i<n;i++){const s=await spawnWorker();if(s){wire(s);Pool.workers.push(s);}}
+  pump();
+}
+function pump(){
+  for(const slot of Pool.workers){
+    if(slot.busy)continue;
+    const job=Pool.hi.shift()||Pool.lo.shift();if(!job)return;
+    slot.busy=job;
+    try{slot.w.postMessage(job.msg);}catch(e){slot.busy=null;job.reject(e);}
+  }
+}
+function workerJob(msg,prio){
+  return new Promise((resolve,reject)=>{const id=++Pool.seq;msg.id=id;(prio==="hi"?Pool.hi:Pool.lo).push({id,msg,resolve,reject});pump();});
+}
+let mainChain=Promise.resolve();
+function mainJob(fn){const p=mainChain.then(async()=>{await sleep(0);return fn();});mainChain=p.catch(()=>{});return p;}
+function makeThumb(file){
+  return Pool.thumbOK&&Pool.workers.length?workerJob({type:"thumb",file,size:THUMB},"lo"):mainJob(()=>Sello.makeThumb(file,THUMB));
+}
+function renderFull(file,lines,s,opt){
+  return Pool.renderOK&&Pool.workers.length?workerJob({type:"render",file,lines,s:plainS(s),opt},"hi"):mainJob(()=>Sello.renderPhoto(file,lines,s,logo,opt));
+}
+const renderSlots=()=>Pool.renderOK&&Pool.workers.length?Pool.workers.length:1;
+const plainS=s=>({size:s.size,pos:s.pos,style:s.style,accent:s.accent,opacity:s.opacity});
+
+/* ================= Ajustes ================= */
+function S(){
+  const v=id=>$(id).value,ck=id=>$(id).checked;
+  const defMode=document.querySelector('input[name=defMode]:checked').value;
+  let def=null;
+  if(defMode==="utm"){const E=parseFloat(v("dE")),N=parseFloat(v("dN")),z=parseInt(v("dZone"),10);if(isFinite(E)&&isFinite(N)&&z>=1&&z<=60)def=fromUTM(E,N,z,v("dHem")==="S");}
+  else if(defMode==="geo"){const la=parseFloat(v("dLat")),lo=parseFloat(v("dLon"));if(isFinite(la)&&isFinite(lo))def={lat:la,lon:lo};}
+  return {title:v("sTitle").trim(),ubic:v("sUbic").trim(),city:v("sCity").trim(),note:v("sNote").trim(),
+    numLabel:v("numLabel").trim()||"Foto N°",numStart:parseInt(v("numStart"),10)||0,
+    cityAuto:document.querySelector('input[name=cityMode]:checked').value==="auto",
+    show:{title:ck("shTitle"),num:ck("shNum"),ubic:ck("shUbic"),city:ck("shCity"),date:ck("shDate"),utm:ck("shUtm"),geo:ck("shGeo"),alt:ck("shAlt"),dir:ck("shDir"),desc:ck("shDesc"),note:ck("shNote")},
+    def,dateFallback:v("dDate"),pos:v("sPos"),style:v("sStyle"),size:parseFloat(v("sSize")),accent:v("sAccent"),opacity:parseFloat(v("sOpacity")),
+    maxSide:parseInt(v("sMax"),10)||0,q:parseFloat(v("sQ")),nameMode:v("sName"),prefix:v("sPrefix").trim().replace(/[\\/:*?"<>|]/g,"_"),
+    partMB:parseInt(v("sPart"),10)||500,keepExif:ck("keepExif"),incPts:ck("incPts")};
+}
+const SAVE_SEL="#settings input:not([type=file]), #settings select, #sOrder";
+const KEY="sello.settings.v2";
+function saveSettings(){
+  const o={};document.querySelectorAll(SAVE_SEL).forEach(el=>{if(!el.id)return;o[el.id]=(el.type==="checkbox"||el.type==="radio")?el.checked:el.value;});
+  try{localStorage.setItem(KEY,JSON.stringify(o));}catch(e){}
+}
+function loadSettings(){
+  let o=null;try{o=JSON.parse(localStorage.getItem(KEY)||localStorage.getItem("sello.settings.v1")||"null");}catch(e){}
+  if(o)Object.keys(o).forEach(id=>{const el=$(id);if(!el)return;if(el.type==="checkbox"||el.type==="radio")el.checked=!!o[id];else el.value=o[id];});
+  try{const d=localStorage.getItem("sello.logo");if(d)setLogoFromURL(d,false);}catch(e){}
+}
+function syncUI(){
+  const m=document.querySelector('input[name=defMode]:checked').value;
+  $("defUtmBox").hidden=m!=="utm";$("defGeoBox").hidden=m!=="geo";
+  $("sCity").disabled=document.querySelector('input[name=cityMode]:checked').value==="auto";
+  $("sizeVal").textContent=parseFloat($("sSize").value).toFixed(1)+" % del lado menor";
+  $("qVal").textContent=Math.round(parseFloat($("sQ").value)*100)+" %";
+  $("opVal").textContent=Math.round(parseFloat($("sOpacity").value)*100)+" %";
+}
+
+/* ================= Estado de fotos ================= */
+let photos=[],isSample=false,logo=null,current=null,running=null;
+
+function infoFor(p,s){
+  const o=p.over||{};
+  let lat=null,lon=null,src="";
+  if(o.lat!=null&&o.lon!=null){lat=o.lat;lon=o.lon;src="manual";}
+  else if(p.exif&&p.exif.lat!=null){lat=p.exif.lat;lon=p.exif.lon;src="gps";}
+  else if(s.def){lat=s.def.lat;lon=s.def.lon;src="general";}
+  let date=null,dsrc="";
+  if(o.date){date=o.date;dsrc="manual";}
+  else if(p.exif&&p.exif.date){date=p.exif.date;dsrc="exif";}
+  else if(s.dateFallback==="file"&&p.file&&p.file.lastModified){date=new Date(p.file.lastModified);dsrc="archivo";}
+  const city=(s.cityAuto&&lat!=null)?nearestCity(lat,lon):s.city;
+  const alt=(src==="gps"&&p.exif.alt!=null)?p.exif.alt:null;
+  const dir=(p.exif&&p.exif.dir!=null)?p.exif.dir:null;
+  return {lat,lon,src,date,dsrc,ubic:o.ubic||s.ubic,desc:o.desc||"",city,alt,dir,num:p.num,utm:lat!=null?toUTM(lat,lon):null};
+}
+function linesFor(info,s){
+  const L=[];
+  if(s.show.title&&s.title)L.push({t:s.title,b:true});
+  if(s.show.num&&info.num!=null)L.push({k:s.numLabel,t:pad(info.num,2),m:true,hl:true});
+  if(s.show.desc&&info.desc)L.push({k:"Descripción",t:info.desc,w:true});
+  if(s.show.ubic&&info.ubic)L.push({k:"Ubicación",t:info.ubic,w:true});
+  if(s.show.city&&info.city)L.push({k:"Ciudad",t:info.city});
+  if(s.show.date&&info.date)L.push({k:"Fecha",t:fmtDate(info.date),m:true});
+  if(s.show.utm&&info.utm){const u=info.utm;L.push({k:"UTM WGS84 "+u.zone+u.band,t:"E "+grp(u.E)+" m   N "+grp(u.N)+" m",m:true,hl:true});}
+  if(s.show.geo&&info.lat!=null)L.push({k:"Lat / Lon",t:info.lat.toFixed(6)+"°   "+info.lon.toFixed(6)+"°",m:true});
+  if(s.show.alt&&info.alt!=null)L.push({k:"Altitud",t:grp(info.alt)+" m s.n.m.",m:true});
+  if(s.show.dir&&info.dir!=null)L.push({k:"Orientación",t:Math.round(info.dir)+"° "+dirName(info.dir),m:true});
+  if(s.show.note&&s.note)L.push({t:s.note,i:true,w:true});
+  return L;
+}
+function renumber(){const st=S().numStart;let n=st;for(const p of photos){p.num=p.sel?n++:null;}}
+const selected=()=>photos.filter(p=>p.sel);
+
+/* ================= Lectura de fotos ================= */
+const OK_RE=/\.(jpe?g|png|webp)$/i,HEIC_RE=/\.(heic|heif)$/i;
+async function readExif(file){
+  const out={date:null,lat:null,lon:null,alt:null,dir:null};
+  try{
+    const e=await exifr.parse(file,{tiff:true,exif:true,gps:true,ifd1:false,interop:false,xmp:false,icc:false,iptc:false,jfif:false,ihdr:false});
+    if(e){
+      const d=e.DateTimeOriginal||e.CreateDate||e.DateTime||e.ModifyDate;
+      if(d instanceof Date&&!isNaN(d))out.date=d;
+      if(typeof e.latitude==="number"&&typeof e.longitude==="number"&&isFinite(e.latitude)&&!(e.latitude===0&&e.longitude===0)){out.lat=e.latitude;out.lon=e.longitude;}
+      if(typeof e.GPSAltitude==="number")out.alt=e.GPSAltitudeRef===1||(e.GPSAltitudeRef&&e.GPSAltitudeRef[0]===1)?-e.GPSAltitude:e.GPSAltitude;
+      if(typeof e.GPSImgDirection==="number"&&isFinite(e.GPSImgDirection))out.dir=e.GPSImgDirection;
+    }
+  }catch(err){}
+  return out;
+}
+let loadToken=0;
+async function loadFiles(list,append){
+  list=[...list];
+  const heic=list.filter(f=>HEIC_RE.test(f.name)).length;
+  const files=list.filter(f=>OK_RE.test(f.name)||/^image\/(jpeg|png|webp)$/.test(f.type));
+  if(!files.length){msg(heic?"Estas fotos son HEIC (iPhone). Cámbialas a JPG: en el iPhone, Ajustes › Cámara › Formatos › Más compatible.":"No encontré fotos JPG, PNG o WebP en esa selección.",true);return;}
+  if(running){msg("Espera a que termine la exportación para agregar fotos.",true);return;}
+  files.sort((a,b)=>(a.webkitRelativePath||a.name).localeCompare(b.webkitRelativePath||b.name,"es",{numeric:true}));
+  if(!append||isSample)clearAll();
+  isSample=false;
+  const token=++loadToken;
+  const known=new Set(photos.map(p=>p.file&&(p.file.name+"|"+p.file.size+"|"+p.file.lastModified)));
+  const fresh=[];
+  for(const f of files){const k=f.name+"|"+f.size+"|"+f.lastModified;if(known.has(k))continue;known.add(k);
+    const p={id:photos.length+fresh.length+1,file:f,name:f.name,exif:{},over:{},sel:true,thumb:null,state:"loading"};fresh.push(p);}
+  if(!fresh.length){msg("Esas fotos ya están en la lista.");return;}
+  photos.push(...fresh);renumber();
+  const frag=document.createDocumentFragment();fresh.forEach(p=>frag.appendChild(buildCard(p)));$("grid").appendChild(frag);
+  updateButtons();
+  let done=0;
+  const total=fresh.length;
+  showProg(true,false);
+  const tick=()=>{setProgress(done/total,"Leyendo fotos: "+done+" de "+total,"");};
+  tick();
+  // EXIF: lectura rápida en paralelo (4 a la vez)
+  let i=0;
+  async function exifWorker(){
+    while(i<fresh.length){
+      if(token!==loadToken)return;
+      const p=fresh[i++];
+      p.exif=await readExif(p.file);
+      p.state="ready";refreshTags(p);
+      done++;if(done%4===0||done===total)tick();
+    }
+  }
+  await Promise.all([exifWorker(),exifWorker(),exifWorker(),exifWorker()]);
+  if(token!==loadToken)return;
+  showProg(false);
+  if($("sOrder").value==="date")applyOrder();
+  updateStats();
+  msg(total+" fotos listas."+(heic?" Se omitieron "+heic+" fotos HEIC; cámbialas a JPG para usarlas.":"")+" Las vistas previas se completan mientras navegas.");
+  // Miniaturas en segundo plano
+  for(const p of fresh){
+    makeThumb(p.file).then(r=>{if(token!==loadToken&&!photos.includes(p))return;p.thumb=r.blob;p.tw=r.w;p.th=r.h;queueCard(p);})
+      .catch(()=>{p.thumbFail=true;const ph=p.el&&p.el.querySelector(".ph");if(ph)ph.textContent="Sin vista previa";});
+  }
+}
+function clearAll(){
+  loadToken++;
+  photos.forEach(p=>{if(p.bmp&&p.bmp.close)p.bmp.close();if(p.el)io.unobserve(p.el);});
+  photos=[];$("grid").innerHTML="";$("dls").innerHTML="";Pool.lo.length=0;
+  updateStats();updateButtons();
+}
+
+/* ================= Tarjetas (vista previa liviana) ================= */
+const io=new IntersectionObserver(entries=>{
+  for(const en of entries){
+    const p=en.target._p;if(!p)continue;
+    p.visible=en.isIntersecting;
+    if(p.visible)queueCard(p);
+    else{ if(p.bmp&&p.bmp.close){p.bmp.close();} p.bmp=null; const cv=p.el.querySelector("canvas"); if(cv){cv.width=0;cv.height=0;} p.drawnKey=null; }
+  }
+},{rootMargin:"500px 0px"});
+function buildCard(p){
+  const c=document.createElement("div");c.className="card";c._p=p;p.el=c;
+  c.innerHTML='<button class="pv" type="button"><span class="ph">Cargando…</span><canvas hidden></canvas><span class="num" hidden></span></button><div class="meta"><label class="sel"><input type="checkbox"><span class="name"></span></label><div class="tags"></div></div>';
+  c.querySelector(".name").textContent=p.name;c.querySelector(".pv").setAttribute("aria-label","Ver y editar "+p.name);
+  const cb=c.querySelector("input");cb.checked=p.sel;
+  cb.addEventListener("change",()=>{p.sel=cb.checked;c.classList.toggle("off",!p.sel);renumber();redrawAll(false);updateStats();});
+  c.querySelector(".pv").addEventListener("click",()=>openDlg(p));
+  io.observe(c);refreshTags(p);
+  return c;
+}
+function refreshTags(p){
+  if(!p.el)return;
+  const s=S(),info=infoFor(p,s),tags=p.el.querySelector(".tags");tags.innerHTML="";
+  const add=(t,c)=>{const e=document.createElement("span");e.className="chip "+(c||"");e.textContent=t;tags.appendChild(e);};
+  if(p.sample)add("Ejemplo","ex");
+  if(p.state==="loading"){add("Leyendo…");return;}
+  if(info.src==="gps")add("GPS","ok");else if(info.src==="manual")add("Coord. editadas","ok");else if(info.src==="general")add("Sin GPS · coord. general","warn");else add("Sin coordenadas","warn");
+  if(info.dsrc==="exif")add("Fecha EXIF","ok");else if(info.dsrc==="manual")add("Fecha editada","ok");else if(info.dsrc==="archivo")add("Fecha del archivo","warn");else add("Sin fecha","warn");
+  if(info.utm)add(info.utm.zone+info.utm.band);
+  if(info.desc)add("Con descripción");
+  const n=p.el.querySelector(".num");n.hidden=p.num==null;n.textContent=p.num!=null?pad(p.num,2):"";
+  p.el.classList.toggle("off",!p.sel);
+}
+const cardQ=new Set();let cardBusy=false;
+function queueCard(p){if(!p.visible||!p.thumb)return;cardQ.add(p);if(!cardBusy)runCards();}
+async function runCards(){
+  cardBusy=true;
+  while(cardQ.size){
+    const p=cardQ.values().next().value;cardQ.delete(p);
+    if(!p.visible||!p.thumb||!p.el)continue;
+    try{
+      if(!p.bmp)p.bmp=await createImageBitmap(p.thumb);
+      if(!p.visible){p.bmp.close&&p.bmp.close();p.bmp=null;continue;}
+      const s=S(),cv=p.el.querySelector("canvas");
+      cv.width=p.bmp.width;cv.height=p.bmp.height;
+      const c=cv.getContext("2d");c.drawImage(p.bmp,0,0);
+      Sello.stamp(c,cv.width,cv.height,linesFor(infoFor(p,s),s),s,logo);
+      cv.hidden=false;const ph=p.el.querySelector(".ph");if(ph)ph.remove();
+    }catch(e){}
+    await new Promise(r=>requestAnimationFrame(r));
+  }
+  cardBusy=false;
+}
+let redrawT=null;
+function redrawAll(save){
+  if(save!==false)saveSettings();
+  clearTimeout(redrawT);
+  redrawT=setTimeout(()=>{photos.forEach(p=>{refreshTags(p);if(p.visible)queueCard(p);});updateStats();if($("dlg").open&&current)drawBig(current);},90);
+}
+function applyOrder(){
+  const by=$("sOrder").value;
+  const s=S();
+  const key=p=>{const d=infoFor(p,s).date;return d?d.getTime():Infinity;};
+  photos.sort(by==="date"?(a,b)=>key(a)-key(b)||a.name.localeCompare(b.name,"es",{numeric:true}):(a,b)=>((a.file&&a.file.webkitRelativePath)||a.name).localeCompare((b.file&&b.file.webkitRelativePath)||b.name,"es",{numeric:true}));
+  const frag=document.createDocumentFragment();photos.forEach(p=>frag.appendChild(p.el));$("grid").appendChild(frag);
+  renumber();redrawAll();
+}
+function updateStats(){
+  const st=$("stats");st.innerHTML="";
+  const add=(t,c)=>{const e=document.createElement("span");e.className="chip "+(c||"");e.textContent=t;st.appendChild(e);};
+  if(!photos.length){add("Sin fotos");return;}
+  if(isSample){add("Vista de ejemplo","ex");add(photos.length+" fotos simuladas");return;}
+  const s=S();let gps=0,nod=0,sel=0;
+  photos.forEach(p=>{if(p.sel)sel++;const i=infoFor(p,s);if(i.src==="gps")gps++;if(i.dsrc!=="exif"&&i.dsrc!=="manual")nod++;});
+  add(sel+" de "+photos.length+" seleccionadas",sel?"":"warn");
+  add(gps+" con GPS",gps===photos.length?"ok":"");
+  if(photos.length-gps)add((photos.length-gps)+" sin GPS","warn");
+  if(nod)add(nod+" sin fecha EXIF","warn");
+}
+function updateButtons(){
+  const has=photos.length>0&&!isSample,busy=!!running;
+  $("btnZip").disabled=!has||busy;$("btnDir").disabled=!has||busy;$("btnShare").disabled=!has||busy;
+  $("btnClear").hidden=!has;$("btnFolder").disabled=busy;$("btnFiles").disabled=busy;
+}
+
+/* ================= Nombres de archivo ================= */
+function makeNames(list,s){
+  const used=new Map(),out=[];
+  list.forEach((p,i)=>{
+    const base=p.name.replace(/\.[^.]+$/,"").replace(/[\\/:*?"<>|]/g,"_");
+    const n=pad(p.num!=null?p.num:i+1,3);
+    const d=infoFor(p,s).date;
+    let nm;
+    if(s.nameMode==="num")nm=n+"_"+base;
+    else if(s.nameMode==="date")nm=(d?d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate())+"_"+pad(d.getHours())+pad(d.getMinutes()):"sin-fecha")+"_"+n;
+    else nm=base+"_sello";
+    nm=s.prefix+nm;
+    let f=nm+".jpg",k=1;while(used.has(f.toLowerCase())){k++;f=nm+"_"+k+".jpg";}
+    used.set(f.toLowerCase(),1);out.push(f);
+  });
+  return out;
+}
+
+/* ================= ZIP por partes (sin cargar todo en memoria) ================= */
+const TE=new TextEncoder();
+function dosTime(d){d=d||new Date();if(d.getFullYear()<1980)d=new Date(1980,0,1);return [(d.getHours()<<11)|(d.getMinutes()<<5)|(d.getSeconds()>>1),((d.getFullYear()-1980)<<9)|((d.getMonth()+1)<<5)|d.getDate()];}
+class ZipPart{
+  constructor(){this.parts=[];this.cd=[];this.off=0;this.n=0;}
+  add(name,data,crc,size,date){
+    const nm=TE.encode(name),[t,dd]=dosTime(date);
+    const h=new DataView(new ArrayBuffer(30));
+    h.setUint32(0,0x04034b50,true);h.setUint16(4,20,true);h.setUint16(6,0x0800,true);h.setUint16(8,0,true);
+    h.setUint16(10,t,true);h.setUint16(12,dd,true);h.setUint32(14,crc,true);h.setUint32(18,size,true);h.setUint32(22,size,true);
+    h.setUint16(26,nm.length,true);h.setUint16(28,0,true);
+    const c=new DataView(new ArrayBuffer(46));
+    c.setUint32(0,0x02014b50,true);c.setUint16(4,20,true);c.setUint16(6,20,true);c.setUint16(8,0x0800,true);c.setUint16(10,0,true);
+    c.setUint16(12,t,true);c.setUint16(14,dd,true);c.setUint32(16,crc,true);c.setUint32(20,size,true);c.setUint32(24,size,true);
+    c.setUint16(28,nm.length,true);c.setUint16(30,0,true);c.setUint16(32,0,true);c.setUint16(34,0,true);c.setUint16(36,0,true);c.setUint32(38,0,true);c.setUint32(42,this.off,true);
+    this.parts.push(h.buffer,nm,data);this.cd.push(c.buffer,nm);
+    this.off+=30+nm.length+size;this.n++;
+  }
+  addText(name,text){const u=TE.encode(text);this.add(name,u,Sello.crc32(u),u.length,new Date());}
+  finish(){
+    let cdSize=0;for(const x of this.cd)cdSize+=x.byteLength;
+    const e=new DataView(new ArrayBuffer(22));
+    e.setUint32(0,0x06054b50,true);e.setUint16(8,this.n,true);e.setUint16(10,this.n,true);e.setUint32(12,cdSize,true);e.setUint32(16,this.off,true);
+    return new Blob([...this.parts,...this.cd,e.buffer],{type:"application/zip"});
+  }
+}
+
+/* ================= Lista de puntos (CSV / KML) ================= */
+function esc(t){return String(t).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));}
+function csvCell(t){t=t==null?"":String(t);return /[",\n;]/.test(t)?'"'+t.replace(/"/g,'""')+'"':t;}
+function pointsFiles(list,names,s){
+  const rows=[["N°","Archivo","Fecha","Hora","Latitud","Longitud","Zona UTM","Este (m)","Norte (m)","Altitud (m)","Orientación (°)","Fuente coord.","Ubicación","Ciudad","Descripción"]];
+  let kml='<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>'+esc(s.title||"Fotos de obra")+'</name>\n';
+  kml+='<Style id="f"><IconStyle><color>ff29b4f0</color><scale>1.1</scale><Icon><href>http://maps.google.com/mapfiles/kml/shapes/camera.png</href></Icon></IconStyle></Style>\n';
+  list.forEach((p,i)=>{
+    const f=infoFor(p,s),u=f.utm,d=f.date;
+    rows.push([p.num!=null?p.num:i+1,names[i],d?pad(d.getDate())+"/"+pad(d.getMonth()+1)+"/"+d.getFullYear():"",d?pad(d.getHours())+":"+pad(d.getMinutes()):"",
+      f.lat!=null?f.lat.toFixed(7):"",f.lon!=null?f.lon.toFixed(7):"",u?u.zone+u.band:"",u?u.E.toFixed(2):"",u?u.N.toFixed(2):"",f.alt!=null?f.alt.toFixed(1):"",f.dir!=null?Math.round(f.dir):"",
+      {gps:"GPS de la foto",manual:"Editada",general:"General (sin GPS)"}[f.src]||"",f.ubic,f.city,f.desc]);
+    if(f.lat!=null){
+      kml+='<Placemark><name>'+esc((p.num!=null?pad(p.num,2)+" · ":"")+names[i])+'</name><styleUrl>#f</styleUrl><description><![CDATA['+
+        [f.desc,d?fmtDate(d):"",u?"UTM "+u.zone+u.band+": E "+grp(u.E)+" N "+grp(u.N):"",f.ubic,f.city].filter(Boolean).join("<br>")+
+        ']]></description><Point><coordinates>'+f.lon.toFixed(7)+","+f.lat.toFixed(7)+","+(f.alt!=null?f.alt.toFixed(1):0)+'</coordinates></Point></Placemark>\n';
+    }
+  });
+  kml+="</Document></kml>\n";
+  return {csv:"﻿"+rows.map(r=>r.map(csvCell).join(",")).join("\r\n")+"\r\n",kml};
+}
+
+/* ================= Exportar ================= */
+function saveBlob(name,blob){
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),120000);
+}
+function addDownload(name,blob){
+  const b=document.createElement("button");b.className="btn sm";b.type="button";
+  b.textContent="Descargar "+name+" ("+fmtBytes(blob.size)+")";
+  b.addEventListener("click",()=>saveBlob(name,blob));$("dls").appendChild(b);
+}
+let wakeLock=null;
+async function keepAwake(on){
+  try{if(on&&navigator.wakeLock&&!wakeLock){wakeLock=await navigator.wakeLock.request("screen");wakeLock.addEventListener("release",()=>wakeLock=null);}
+      else if(!on&&wakeLock){await wakeLock.release();wakeLock=null;}}catch(e){}
+}
+document.addEventListener("visibilitychange",()=>{if(running&&document.visibilityState==="visible")keepAwake(true);});
+
+async function exportRun(mode,dirHandle){
+  if(running)return;
+  if(isSample||!photos.length){msg("Primero elige tus fotos.",true);return;}
+  renumber();
+  const list=selected();
+  if(!list.length){msg("No hay fotos seleccionadas.",true);return;}
+  const s=S();
+  const names=makeNames(list,s);
+  const jobs=list.map((p,i)=>({p,name:names[i],lines:linesFor(infoFor(p,s),s),date:infoFor(p,s).date}));
+  const opt={maxSide:s.maxSide,q:s.q,keepExif:s.keepExif,maxPixels:MAX_PIX};
+  const limit=s.partMB*1048576;
+  const run={cancel:false};running=run;updateButtons();
+  $("dls").innerHTML="";msg("");showProg(true,true);keepAwake(true);photos.forEach(p=>p.el&&p.el.classList.remove("fail"));
+  const t0=performance.now();
+  const stamp=new Date(),tag=stamp.getFullYear()+pad(stamp.getMonth()+1)+pad(stamp.getDate())+"_"+pad(stamp.getHours())+pad(stamp.getMinutes());
+  const baseZip=(s.prefix||"fotos_con_sello_")+tag;
+  let zip=mode==="zip"?new ZipPart():null,partNo=1,zips=[];
+  const shareFiles=[];const failed=[];
+  let done=0,bytes=0;
+  const finishPart=(last)=>{
+    if(!zip||!zip.n)return;
+    const nm=baseZip+(last&&partNo===1?"":"_parte"+partNo)+".zip";
+    const blob=zip.finish();zips.push({nm,blob});
+    addDownload(nm,blob);
+    saveBlob(nm,blob);
+    zip=new ZipPart();partNo++;
+  };
+  const results=new Map();let next=0,launched=0;
+  const slots=renderSlots();
+  const report=()=>{
+    const el=(performance.now()-t0)/1000,rate=done?el/done:0;
+    setProgress(done/jobs.length,"Foto "+done+" de "+jobs.length+(failed.length?" · "+failed.length+" con error":""),done>1?"Quedan ~"+fmtTime(rate*(jobs.length-done))+" · "+fmtBytes(bytes):"");
+  };
+  report();
+  async function consume(idx,r){
+    const j=jobs[idx];
+    if(r.error){if(!run.cancel){failed.push(j.p);j.p.el&&j.p.el.classList.add("fail");}return;}
+    bytes+=r.size;
+    if(mode==="zip"){
+      if(zip.n&&zip.off+r.size+200>limit)finishPart(false);
+      zip.add(j.name,r.blob,r.crc,r.size,j.date);
+    }else if(mode==="dir"){
+      const fh=await dirHandle.getFileHandle(j.name,{create:true});
+      const w=await fh.createWritable();await w.write(r.blob);await w.close();
+    }else shareFiles.push(new File([r.blob],j.name,{type:"image/jpeg",lastModified:j.date?j.date.getTime():Date.now()}));
+  }
+  try{
+    await new Promise((resolve)=>{
+      let inflight=0,draining=false,ended=false;
+      const end=()=>{if(!ended){ended=true;resolve();}};
+      async function drain(){
+        if(draining)return;draining=true;
+        while(results.has(next)){
+          const rr=results.get(next);results.delete(next);
+          try{await consume(next,rr);}catch(e){failed.push(jobs[next].p);run.err=e;}
+          next++;done++;report();
+        }
+        draining=false;
+        if(next>=jobs.length||(run.cancel&&inflight===0))end();else launch();
+      }
+      function launch(){
+        while(!run.cancel&&inflight<slots&&launched<jobs.length&&(launched-next)<slots+2){
+          const idx=launched++;inflight++;const j=jobs[idx];
+          renderFull(j.p.file,j.lines,s,opt).then(r=>({blob:r.blob,crc:r.crc,size:r.size}),e=>({error:e&&e.message||String(e)}))
+            .then(r=>{inflight--;results.set(idx,r);drain();});
+        }
+        if(run.cancel&&inflight===0&&!draining)end();
+      }
+      launch();
+    });
+    if(run.cancel){
+      msg("Exportación cancelada."+(mode==="dir"&&done?" Ya se guardaron "+done+" fotos en la carpeta.":""));
+      if(mode==="zip"&&zip&&zip.n){msg("Exportación cancelada. Se armó un ZIP con las "+zip.n+" fotos ya listas.");finishPart(true);}
+    }else{
+      if(s.incPts&&mode!=="share"){
+        const okList=[],okNames=[];jobs.forEach((j,i)=>{if(!failed.includes(j.p)){okList.push(j.p);okNames.push(j.name);}});
+        const pf=pointsFiles(okList,okNames,s);
+        if(mode==="zip"){zip.addText("puntos_fotos.csv",pf.csv);zip.addText("puntos_fotos.kml",pf.kml);}
+        else if(mode==="dir"){for(const [n,t] of [["puntos_fotos.csv",pf.csv],["puntos_fotos.kml",pf.kml]]){const fh=await dirHandle.getFileHandle(n,{create:true});const w=await fh.createWritable();await w.write(t);await w.close();}}
+      }
+      if(mode==="zip")finishPart(true);
+      const el=fmtTime((performance.now()-t0)/1000);
+      const ok=jobs.length-failed.length;
+      if(mode==="zip")msg(ok+" fotos exportadas en "+el+(zips.length>1?" · "+zips.length+" archivos ZIP. Si el navegador pregunta, permite descargar varios archivos; también puedes usar los botones de abajo.":". El ZIP se está guardando en Descargas; si no aparece, usa el botón de abajo."));
+      else if(mode==="dir")msg(ok+" fotos guardadas en la carpeta «"+dirHandle.name+"» en "+el+".");
+      else{
+        const btn=document.createElement("button");btn.className="btn primary";btn.type="button";btn.textContent="Compartir "+shareFiles.length+" fotos ahora";
+        btn.addEventListener("click",async()=>{try{if(navigator.canShare&&!navigator.canShare({files:shareFiles})){msg("Tu dispositivo no permite compartir tantas fotos juntas. Selecciona menos o usa el ZIP.",true);return;}await navigator.share({files:shareFiles,title:"Fotos con sello"});msg("Compartido.");}catch(e){if(!(e&&e.name==="AbortError"))msg("No se pudo compartir: "+(e&&e.message||e),true);}});
+        $("dls").appendChild(btn);msg(shareFiles.length+" fotos listas. Toca «Compartir» para enviarlas a WhatsApp, Drive o correo.");
+      }
+      if(failed.length)msg($("msg").textContent+" "+failed.length+" fotos no se pudieron procesar (marcadas en rojo): "+failed.slice(0,4).map(p=>p.name).join(", ")+(failed.length>4?"…":"")+".",true);
+    }
+  }catch(e){msg("La exportación se detuvo: "+(e&&e.message||e),true);}
+  finally{running=null;showProg(false);keepAwake(false);updateButtons();}
+}
+$("btnZip").addEventListener("click",()=>exportRun("zip"));
+$("btnDir").addEventListener("click",async()=>{
+  if(running||isSample||!photos.length)return;
+  let dir;try{dir=await window.showDirectoryPicker({mode:"readwrite",id:"sello-out",startIn:"pictures"});}catch(e){if(!(e&&e.name==="AbortError"))msg("No se pudo abrir la carpeta: "+(e&&e.message||e),true);return;}
+  exportRun("dir",dir);
+});
+$("btnShare").addEventListener("click",()=>{
+  const n=selected().length;
+  if(n>40&&!confirmBox.armed){confirmBox.armed=true;msg("Vas a preparar "+n+" fotos para compartir; en celulares conviene hacerlo de a 40 o menos. Toca «Compartir» otra vez para continuar.");setTimeout(()=>confirmBox.armed=false,8000);return;}
+  confirmBox.armed=false;exportRun("share");
+});
+const confirmBox={armed:false};
+$("btnCancel").addEventListener("click",()=>{if(running){running.cancel=true;Pool.hi.splice(0).forEach(j=>j.reject(new Error("cancelado")));setProgress(null,"Cancelando…","");}});
+
+/* ================= Diálogo por foto ================= */
+let bigToken=0;
+async function drawBig(p){
+  const tk=++bigToken,s=S(),cv=$("bigCanvas");
+  let img;
+  try{img=await Sello.decode(p.file,{resizeWidth:1600,resizeQuality:"high"});}catch(e){dmsg("No se pudo abrir esta foto.",true);return;}
+  if(tk!==bigToken){img.close&&img.close();return;}
+  cv.width=img.width;cv.height=img.height;
+  const c=cv.getContext("2d");c.drawImage(img,0,0);img.close&&img.close();
+  Sello.stamp(c,cv.width,cv.height,linesFor(infoFor(p,s),s),s,logo);
+}
+function openDlg(p){
+  current=p;const e=p.exif||{};
+  $("dName").textContent=(p.num!=null?pad(p.num,2)+" · ":"")+p.name;
+  $("dExif").textContent=[e.date?"EXIF fecha: "+fmtDate(e.date):"Sin fecha EXIF",
+    e.lat!=null?"EXIF GPS: "+e.lat.toFixed(6)+", "+e.lon.toFixed(6)+(e.alt!=null?" · "+Math.round(e.alt)+" m":""):"Sin GPS en EXIF",
+    e.dir!=null?"Brújula: "+Math.round(e.dir)+"° "+dirName(e.dir):""].filter(Boolean).join("\n");
+  $("oDesc").value=p.over.desc||"";$("oUbic").value=p.over.ubic||"";
+  $("oLat").value=p.over.lat??"";$("oLon").value=p.over.lon??"";
+  const d=p.over.date||e.date;$("oDate").value=d?toLocalInput(d):"";
+  $("oSel").checked=p.sel;$("oSave").disabled=!!p.sample;
+  $("dMsg").textContent="";
+  if(!$("dlg").open)$("dlg").showModal();
+  drawBig(p);
+}
+function readOver(){
+  const o={};
+  const ds=$("oDesc").value.trim();if(ds)o.desc=ds;
+  const u=$("oUbic").value.trim();if(u)o.ubic=u;
+  const la=parseFloat($("oLat").value),lo=parseFloat($("oLon").value);
+  if(isFinite(la)&&isFinite(lo)){if(Math.abs(la)>90||Math.abs(lo)>180){dmsg("Latitud o longitud fuera de rango.",true);return null;}o.lat=la;o.lon=lo;}
+  const dv=$("oDate").value;if(dv){const d=new Date(dv);const ed=current.exif&&current.exif.date;if(!ed||Math.abs(d-ed)>59000)o.date=d;}
+  return o;
+}
+function applyCurrent(){
+  if(!current)return false;const o=readOver();if(!o)return false;
+  current.over=o;
+  if(current.sel!==$("oSel").checked){current.sel=$("oSel").checked;current.el.querySelector("input").checked=current.sel;renumber();}
+  return true;
+}
+$("oApply").addEventListener("click",()=>{if(applyCurrent()){redrawAll(false);dmsg("Cambios aplicados.");}});
+$("oCopy").addEventListener("click",()=>{
+  if(!applyCurrent())return;
+  let n=0;for(const p of photos){if(p.sel&&p!==current){if(current.over.desc)p.over.desc=current.over.desc;else delete p.over.desc;if(current.over.ubic)p.over.ubic=current.over.ubic;else delete p.over.ubic;n++;}}
+  redrawAll(false);dmsg("Copiado a "+n+" fotos seleccionadas.");
+});
+$("oReset").addEventListener("click",()=>{if(!current)return;current.over={};openDlg(current);redrawAll(false);});
+$("oClose").addEventListener("click",()=>$("dlg").close());
+$("dlg").addEventListener("click",e=>{if(e.target===$("dlg"))$("dlg").close();});
+$("dlg").addEventListener("close",()=>{bigToken++;const cv=$("bigCanvas");cv.width=cv.height=0;});
+function step(d){if(!current)return;if(!applyCurrent())return;redrawAll(false);const i=photos.indexOf(current)+d;if(i>=0&&i<photos.length)openDlg(photos[i]);}
+$("oPrev").addEventListener("click",()=>step(-1));$("oNext").addEventListener("click",()=>step(1));
+$("dlg").addEventListener("keydown",e=>{if(e.target.tagName==="INPUT")return;if(e.key==="ArrowRight")step(1);if(e.key==="ArrowLeft")step(-1);});
+$("oSave").addEventListener("click",async()=>{
+  if(!current||current.sample)return;applyCurrent();
+  const s=S(),p=current;dmsg("Generando…");$("oSave").disabled=true;
+  try{const r=await renderFull(p.file,linesFor(infoFor(p,s),s),s,{maxSide:s.maxSide,q:s.q,keepExif:s.keepExif,maxPixels:MAX_PIX});
+    const nm=makeNames([p],s)[0];saveBlob(nm,r.blob);dmsg("Guardada en Descargas: "+nm);}
+  catch(e){dmsg("No se pudo generar: "+(e&&e.message||e),true);}
+  $("oSave").disabled=false;
+});
+function dmsg(t,err){const m=$("dMsg");m.textContent=t;m.classList.toggle("err",!!err);}
+
+/* ================= UI general ================= */
+function msg(t,err){const m=$("msg");m.textContent=t;m.classList.toggle("err",!!err);}
+function showProg(on,cancel){$("prog").hidden=!on;$("btnCancel").hidden=!cancel;if(!on)$("progBar").style.width="0";}
+function setProgress(v,a,b){if(v!=null)$("progBar").style.width=(Math.min(1,v)*100).toFixed(1)+"%";$("progA").textContent=a||"";$("progB").textContent=b||"";}
+$("btnFolder").addEventListener("click",()=>$("inFolder").click());
+$("btnFiles").addEventListener("click",()=>$("inFiles").click());
+$("btnClear").addEventListener("click",()=>{if(running)return;clearAll();initSample();msg("Lista vaciada.");});
+$("inFolder").addEventListener("change",e=>{if(e.target.files.length)loadFiles(e.target.files,false);e.target.value="";});
+$("inFiles").addEventListener("change",e=>{if(e.target.files.length)loadFiles(e.target.files,true);e.target.value="";});
+$("selAll").addEventListener("click",()=>{photos.forEach(p=>{p.sel=true;if(p.el)p.el.querySelector("input").checked=true;});renumber();redrawAll(false);});
+$("selNone").addEventListener("click",()=>{photos.forEach(p=>{p.sel=false;if(p.el)p.el.querySelector("input").checked=false;});renumber();redrawAll(false);});
+$("sOrder").addEventListener("change",applyOrder);
+
+/* Logo */
+$("btnLogo").addEventListener("click",()=>$("inLogo").click());
+$("inLogo").addEventListener("change",e=>{
+  const f=e.target.files[0];e.target.value="";if(!f)return;
+  const r=new FileReader();r.onload=()=>setLogoFromURL(r.result,true);r.onerror=()=>msg("No se pudo leer el logo.",true);r.readAsDataURL(f);
+});
+function setLogoFromURL(url,store){
+  const im=new Image();
+  im.onload=async()=>{
+    const k=Math.min(1,800/Math.max(im.naturalWidth||800,im.naturalHeight||800));
+    const c=document.createElement("canvas");c.width=Math.max(1,Math.round((im.naturalWidth||800)*k));c.height=Math.max(1,Math.round((im.naturalHeight||400)*k));
+    c.getContext("2d").drawImage(im,0,0,c.width,c.height);
+    logo=c;$("btnLogoX").hidden=false;
+    try{Pool.logoBmp=await createImageBitmap(c);Pool.workers.forEach(sl=>sl.w.postMessage({type:"logo",bitmap:Pool.logoBmp}));}catch(e){}
+    if(store){try{localStorage.setItem("sello.logo",c.toDataURL("image/png"));}catch(e){msg("El logo es muy pesado para recordarlo; se usará solo en esta sesión.");}}
+    redrawAll(false);
+  };
+  im.onerror=()=>msg("No se pudo leer el logo. Usa PNG o JPG.",true);
+  im.src=url;
+}
+$("btnLogoX").addEventListener("click",()=>{logo=null;Pool.logoBmp=null;Pool.workers.forEach(sl=>sl.w.postMessage({type:"logo",bitmap:null}));$("btnLogoX").hidden=true;try{localStorage.removeItem("sello.logo");}catch(e){}redrawAll(false);});
+
+$("settings").addEventListener("input",()=>{syncUI();if(photos.length)renumber();redrawAll();});
+$("settings").addEventListener("change",()=>{syncUI();redrawAll();});
+
+/* Arrastrar y soltar (incluye carpetas) */
+const drop=document.body;
+["dragenter","dragover"].forEach(t=>drop.addEventListener(t,e=>{if(e.dataTransfer&&[...e.dataTransfer.types].includes("Files")){e.preventDefault();$("drop").classList.add("over");}}));
+["dragleave","drop"].forEach(t=>drop.addEventListener(t,e=>{if(t==="dragleave"&&e.relatedTarget)return;$("drop").classList.remove("over");}));
+drop.addEventListener("drop",async e=>{
+  if(!e.dataTransfer||!e.dataTransfer.files.length)return;e.preventDefault();
+  const items=[...(e.dataTransfer.items||[])];const out=[];
+  const walk=async ent=>{
+    if(!ent)return;
+    if(ent.isFile){await new Promise(r=>ent.file(f=>{out.push(f);r();},()=>r()));}
+    else if(ent.isDirectory){const rd=ent.createReader();let batch;do{batch=await new Promise(r=>rd.readEntries(r,()=>r([])));for(const b of batch)await walk(b);}while(batch.length);}
+  };
+  if(items.length&&items[0].webkitGetAsEntry){const ents=items.map(it=>it.webkitGetAsEntry());for(const en of ents)await walk(en);}
+  else out.push(...e.dataTransfer.files);
+  if(out.length)loadFiles(out,true);
+});
+
+/* ================= Ejemplo inicial ================= */
+function sampleCanvas(W,H,seed){
+  const c=document.createElement("canvas");c.width=W;c.height=H;const g=c.getContext("2d");
+  const sky=g.createLinearGradient(0,0,0,H*0.6);sky.addColorStop(0,"#6f9fd0");sky.addColorStop(1,"#cfe1ee");g.fillStyle=sky;g.fillRect(0,0,W,H);
+  [["#7d8f86",0.42],["#5f7366",0.52],["#8a7a64",0.66]].forEach(([col,b],k)=>{g.fillStyle=col;g.beginPath();g.moveTo(0,H);for(let x=0;x<=W;x+=W/40){g.lineTo(x,H*b+Math.sin(x/W*6+k*2+seed)*H*0.05+Math.sin(x/W*17+seed)*H*0.015);}g.lineTo(W,H);g.fill();});
+  g.fillStyle="#9b9a94";g.fillRect(W*0.18,H*0.48,W*0.36,H*0.3);
+  g.fillStyle="#b9b5aa";for(let i=0;i<4;i++)g.fillRect(W*0.18,H*(0.48+i*0.075),W*0.36,H*0.012);
+  g.strokeStyle="#6b4b2a";g.lineWidth=W*0.004;for(let i=0;i<6;i++){g.beginPath();g.moveTo(W*(0.2+i*0.065),H*0.48);g.lineTo(W*(0.2+i*0.065),H*0.2);g.stroke();}
+  g.beginPath();g.moveTo(W*0.18,H*0.25);g.lineTo(W*0.56,H*0.25);g.stroke();
+  g.fillStyle="#8c6f4e";g.fillRect(0,H*0.78,W,H*0.22);
+  return c;
+}
+async function initSample(){
+  isSample=true;
+  const ex=[
+    {name:"IMG_20261021_093412.jpg",exif:{date:new Date(2026,9,21,9,34),lat:-13.52262,lon:-71.96731,alt:3341,dir:248},desc:"Encofrado de columnas, eje B",seed:0.4},
+    {name:"IMG_20261021_101558.jpg",exif:{date:new Date(2026,9,21,10,15),lat:-13.52281,lon:-71.96702,alt:3339,dir:95},desc:"",seed:1.7},
+    {name:"DSC_0045.jpg",exif:{date:null,lat:null,lon:null,alt:null,dir:null},desc:"",seed:3.1}];
+  for(const e of ex){
+    const cv=sampleCanvas(1600,1200,e.seed);
+    const blob=await Sello.canvasToBlob(cv,"image/jpeg",0.85);cv.width=cv.height=0;
+    if(!isSample)return;
+    const p={id:photos.length+1,file:blob,name:e.name,exif:e.exif,over:e.desc?{desc:e.desc}:{},sel:true,sample:true,state:"ready"};
+    photos.push(p);renumber();$("grid").appendChild(buildCard(p));
+    Sello.makeThumb(blob,THUMB).then(r=>{p.thumb=r.blob;queueCard(p);}).catch(()=>{});
+  }
+  updateStats();updateButtons();
+  msg("Vista de ejemplo con fotos simuladas. Elige tu carpeta o agrega fotos para empezar.");
+}
+
+/* ================= Instalación, actualización y modo sin conexión ================= */
+let installEvt=null;
+const isStandalone=()=>matchMedia("(display-mode: standalone)").matches||navigator.standalone===true;
+window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();installEvt=e;let x=false;try{x=localStorage.getItem("sello.noInstall")==="1";}catch(_){}if(!x&&!isStandalone())$("installBar").hidden=false;});
+$("btnInstall").addEventListener("click",async()=>{if(!installEvt)return;installEvt.prompt();try{const r=await installEvt.userChoice;if(r.outcome==="accepted")$("installBar").hidden=true;}catch(e){}installEvt=null;});
+$("btnInstallX").addEventListener("click",()=>{$("installBar").hidden=true;try{localStorage.setItem("sello.noInstall","1");}catch(e){}});
+window.addEventListener("appinstalled",()=>{$("installBar").hidden=true;msg("App instalada. Ábrela desde tu escritorio o pantalla de inicio.");});
+if("serviceWorker" in navigator&&location.protocol!=="file:"){
+  const had=!!navigator.serviceWorker.controller;
+  navigator.serviceWorker.addEventListener("controllerchange",()=>{if(had)$("updateBar").hidden=false;});
+  window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").then(r=>r.update&&r.update()).catch(()=>{}));
+}
+$("btnReload").addEventListener("click",()=>{if(running){msg("Espera a que termine la exportación.",true);return;}location.reload();});
+
+/* Fotos recibidas desde «Compartir» de la galería (Android) */
+async function takeShared(){
+  if(!/[?&]shared=1/.test(location.search)||!("caches" in window))return false;
+  history.replaceState(null,"",location.pathname);
+  try{
+    const c=await caches.open("sello-shared");const keys=await c.keys();const files=[];
+    for(const k of keys){const r=await c.match(k);const b=await r.blob();
+      const name=decodeURIComponent(r.headers.get("X-Name")||("foto_"+files.length+".jpg"));
+      const lm=parseInt(r.headers.get("X-LastModified")||"0",10)||Date.now();
+      files.push(new File([b],name,{type:b.type||"image/jpeg",lastModified:lm}));await c.delete(k);}
+    if(files.length){loadFiles(files,false);return true;}
+  }catch(e){msg("No se pudieron recibir las fotos compartidas.",true);}
+  return false;
+}
+
+/* ================= Arranque ================= */
+if("showDirectoryPicker" in window&&!isMobile)$("btnDir").hidden=false;
+try{if(navigator.canShare&&navigator.canShare({files:[new File(["x"],"x.jpg",{type:"image/jpeg"})]})&&isMobile)$("btnShare").hidden=false;}catch(e){}
+if(isMobile||innerWidth<880)document.querySelectorAll("details.sec").forEach((d,i)=>{if(i>0)d.open=false;});
+loadSettings();syncUI();updateStats();
+initPool().finally(()=>{takeShared().then(got=>{if(!got&&!photos.length)initSample();});});
+if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>redrawAll(false));
+})();
+</script>
+</body>
+</html>
