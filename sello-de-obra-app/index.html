@@ -1,0 +1,737 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Sello de Obra</title>
+<meta name="description" content="Marca de agua con ubicación, ciudad, fecha y coordenadas UTM para fotos de obra.">
+<meta name="theme-color" content="#141d26">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icons/favicon-48.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<style>
+@font-face{font-family:"Archivo";font-weight:400;font-style:normal;font-display:swap;src:url(fonts/archivo-latin-400-normal.woff2) format("woff2")}
+@font-face{font-family:"Archivo";font-weight:400;font-style:italic;font-display:swap;src:url(fonts/archivo-latin-400-italic.woff2) format("woff2")}
+@font-face{font-family:"Archivo";font-weight:500;font-style:normal;font-display:swap;src:url(fonts/archivo-latin-500-normal.woff2) format("woff2")}
+@font-face{font-family:"Archivo";font-weight:600;font-style:normal;font-display:swap;src:url(fonts/archivo-latin-600-normal.woff2) format("woff2")}
+@font-face{font-family:"Archivo";font-weight:700;font-style:normal;font-display:swap;src:url(fonts/archivo-latin-700-normal.woff2) format("woff2")}
+@font-face{font-family:"Archivo";font-weight:800;font-style:normal;font-display:swap;src:url(fonts/archivo-latin-800-normal.woff2) format("woff2")}
+@font-face{font-family:"IBM Plex Mono";font-weight:400;font-style:normal;font-display:swap;src:url(fonts/ibm-plex-mono-latin-400-normal.woff2) format("woff2")}
+@font-face{font-family:"IBM Plex Mono";font-weight:500;font-style:normal;font-display:swap;src:url(fonts/ibm-plex-mono-latin-500-normal.woff2) format("woff2")}
+html{-webkit-text-size-adjust:100%}
+[hidden]{display:none!important}
+img{max-width:100%}
+:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{margin:0}
+/* Layout: panel de ajustes a la izquierda (como libreta de campo), cuadrícula de fotos a la derecha; apila en móvil */
+:root{
+  --bg:#eaeef1; --surface:#ffffff; --sunk:#f4f6f8; --ink:#141d26; --muted:#5a6774; --line:#d3dae0;
+  --accent:#c98600; --accent-ink:#1b1300; --ok:#2f7d4f; --warn:#b4541a;
+  --f-ui:"Archivo",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-data:"IBM Plex Mono",ui-monospace,"Cascadia Mono",Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0e141a; --surface:#172029; --sunk:#111920; --ink:#e4eaef; --muted:#93a1ad; --line:#293541;
+  --accent:#f0b429; --accent-ink:#1b1300; --ok:#5cc28a; --warn:#f08a4b; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0e141a; --surface:#172029; --sunk:#111920; --ink:#e4eaef; --muted:#93a1ad; --line:#293541;
+  --accent:#f0b429; --accent-ink:#1b1300; --ok:#5cc28a; --warn:#f08a4b; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-ui);font-size:14px;line-height:1.45;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:18px 40px}
+.wrap{max-width:1320px;margin:0 auto;display:grid;gap:18px}
+header.top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px}
+h1{font-size:26px;font-weight:800;letter-spacing:-.01em;margin:0;text-wrap:balance}
+h1 small{display:block;font-family:var(--f-data);font-size:11px;font-weight:500;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:2px}
+.actions{display:flex;flex-wrap:wrap;gap:8px}
+.btn{font:600 14px var(--f-ui);border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:9px 14px;border-radius:6px;cursor:pointer;display:inline-flex;align-items:center;gap:8px}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.primary:hover{filter:brightness(1.05)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.layout{display:grid;grid-template-columns:330px minmax(0,1fr);gap:18px;align-items:start}
+@media (max-width:860px){.layout{grid-template-columns:1fr}}
+aside.panel{background:var(--surface);border:1px solid var(--line);border-radius:8px;display:grid}
+fieldset{border:0;border-top:1px solid var(--line);margin:0;padding:14px 16px;display:grid;gap:10px;min-width:0}
+fieldset:first-child{border-top:0}
+legend{float:left;width:100%;padding:0;margin-bottom:2px;font-family:var(--f-data);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+label.f{display:grid;gap:4px;font-weight:500;font-size:13px}
+input[type=text],input[type=number],input[type=datetime-local],select,textarea{width:100%;font:14px var(--f-ui);color:var(--ink);background:var(--sunk);border:1px solid var(--line);border-radius:5px;padding:7px 9px;min-width:0}
+input[type=number]{font-family:var(--f-data);font-size:13px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.row3{display:grid;grid-template-columns:.7fr .7fr 1fr;gap:8px}
+.checks{display:grid;grid-template-columns:1fr 1fr;gap:6px 10px}
+.checks label{display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer}
+input[type=checkbox],input[type=radio]{accent-color:var(--accent)}
+.seg{display:flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.seg label{flex:1;text-align:center;font-size:12.5px;padding:6px 4px;cursor:pointer;background:var(--sunk)}
+.seg input{position:absolute;opacity:0;pointer-events:none}
+.seg label:has(input:checked){background:var(--accent);color:var(--accent-ink);font-weight:600}
+.seg label:has(input:focus-visible){outline:2px solid var(--accent);outline-offset:-2px}
+.hint{font-size:12px;color:var(--muted)}
+input[type=range]{width:100%;accent-color:var(--accent)}
+.rangeval{font-family:var(--f-data);font-size:12px;color:var(--muted)}
+main.board{display:grid;gap:12px;min-width:0}
+.drop{border:1.5px dashed var(--line);border-radius:8px;padding:14px 16px;display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;justify-content:space-between;background:var(--surface)}
+.drop.over{border-color:var(--accent);background:var(--sunk)}
+.drop p{margin:0;color:var(--muted);max-width:60ch}
+.stats{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font-family:var(--f-data);font-size:11.5px;padding:3px 8px;border-radius:99px;border:1px solid var(--line);background:var(--sunk);color:var(--muted);white-space:nowrap}
+.chip.ok{color:var(--ok);border-color:color-mix(in srgb,var(--ok) 40%,var(--line))}
+.chip.warn{color:var(--warn);border-color:color-mix(in srgb,var(--warn) 40%,var(--line))}
+.chip.ex{color:var(--accent-ink);background:var(--accent);border-color:var(--accent)}
+.progress{height:6px;border-radius:3px;background:var(--line);overflow:hidden}
+.progress>i{display:block;height:100%;width:0;background:var(--accent);transition:width .15s}
+.msg{font-size:13px;color:var(--muted)}
+.msg.err{color:var(--warn)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:8px;overflow:hidden;display:grid;grid-template-rows:auto 1fr;cursor:pointer;text-align:left;padding:0;font:inherit;color:inherit}
+.card:hover{border-color:var(--muted)}
+.card canvas{width:100%;height:auto;display:block;background:var(--sunk);aspect-ratio:4/3;object-fit:contain}
+.card .meta{padding:9px 10px;display:grid;gap:6px;min-width:0;align-content:start}
+.card .name{font-weight:600;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.card .tags{display:flex;flex-wrap:wrap;gap:4px;align-items:flex-start}
+.empty{padding:40px 16px;text-align:center;color:var(--muted)}
+dialog{border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);padding:0;width:min(1100px,calc(100vw - 24px));max-height:calc(100vh - 24px)}
+dialog::backdrop{background:rgba(5,10,15,.6)}
+.dlg{display:grid;grid-template-columns:minmax(0,1fr) 300px;max-height:calc(100vh - 26px)}
+@media (max-width:760px){.dlg{grid-template-columns:1fr;overflow:auto}}
+.dlg .view{background:#0b0f13;display:flex;align-items:center;justify-content:center;min-height:240px;overflow:auto}
+.dlg .view canvas{max-width:100%;max-height:calc(100vh - 40px);display:block}
+.dlg .side{padding:16px;display:grid;gap:10px;align-content:start;overflow:auto;border-left:1px solid var(--line)}
+.dlg h2{margin:0;font-size:16px;word-break:break-all}
+.mono{font-family:var(--f-data);font-size:12px;color:var(--muted)}
+.btnrow{display:flex;flex-wrap:wrap;gap:8px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+.banner{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;justify-content:space-between;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px 14px}
+.banner p{margin:0;font-size:13px;color:var(--muted);max-width:70ch}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="top">
+    <h1><small>Fotografías de campo · UTM WGS84</small>Sello de Obra</h1>
+    <div class="actions">
+      <button class="btn" id="btnFolder" type="button">Elegir carpeta</button>
+      <button class="btn" id="btnFiles" type="button">Elegir fotos</button>
+      <button class="btn" id="btnShareAll" type="button" hidden disabled>Compartir todas</button>
+      <button class="btn primary" id="btnZip" type="button" disabled>Descargar todas (ZIP)</button>
+    </div>
+    <input type="file" id="inFolder" webkitdirectory directory multiple hidden>
+    <input type="file" id="inFiles" accept="image/jpeg,image/png,image/webp" multiple hidden>
+    <input type="file" id="inLogo" accept="image/png,image/jpeg,image/webp,image/svg+xml" hidden>
+  </header>
+
+  <div class="banner" id="installBar" hidden>
+    <p>Instala Sello de Obra en este dispositivo para abrirla como una app, sin barra del navegador y sin necesidad de internet.</p>
+    <div class="btnrow">
+      <button class="btn primary" id="btnInstall" type="button">Instalar app</button>
+      <button class="btn" id="btnInstallX" type="button">Ahora no</button>
+    </div>
+  </div>
+
+  <div class="layout">
+    <aside class="panel" id="settings">
+      <fieldset>
+        <legend>Texto del sello</legend>
+        <label class="f">Título / proyecto
+          <input type="text" id="sTitle" value="Proyecto: Vivienda multifamiliar" placeholder="Ej. Obra: Residencial ...">
+        </label>
+        <label class="f">Ubicación
+          <input type="text" id="sUbic" value="Av. de la Cultura, Wánchaq" placeholder="Dirección, frente, sector">
+        </label>
+        <label class="f">Ciudad
+          <div class="seg" role="radiogroup" aria-label="Modo de ciudad">
+            <label><input type="radio" name="cityMode" id="cityAuto" value="auto" checked>Automática</label>
+            <label><input type="radio" name="cityMode" id="cityManual" value="manual">Escribir</label>
+          </div>
+          <input type="text" id="sCity" value="Cusco, Perú" placeholder="Ciudad, región">
+          <span class="hint">Automática toma el distrito o ciudad más cercano a las coordenadas de cada foto (Cusco y principales ciudades del Perú). Si escribes, se usa tu texto en todas.</span>
+        </label>
+        <label class="f">Nota adicional (opcional)
+          <input type="text" id="sNote" value="" placeholder="Ej. Responsable: Ing. ... · Partida 02.01">
+        </label>
+      </fieldset>
+
+      <fieldset>
+        <legend>Qué mostrar</legend>
+        <div class="checks">
+          <label><input type="checkbox" id="shTitle" checked>Título</label>
+          <label><input type="checkbox" id="shUbic" checked>Ubicación</label>
+          <label><input type="checkbox" id="shCity" checked>Ciudad</label>
+          <label><input type="checkbox" id="shDate" checked>Fecha y hora</label>
+          <label><input type="checkbox" id="shUtm" checked>Coord. UTM</label>
+          <label><input type="checkbox" id="shGeo">Lat / Lon</label>
+          <label><input type="checkbox" id="shAlt" checked>Altitud</label>
+          <label><input type="checkbox" id="shNote" checked>Nota</label>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Si la foto no tiene GPS</legend>
+        <div class="seg" role="radiogroup" aria-label="Formato de coordenadas por defecto">
+          <label><input type="radio" name="defMode" id="defUtm" value="utm" checked>UTM</label>
+          <label><input type="radio" name="defMode" id="defGeo" value="geo">Lat / Lon</label>
+          <label><input type="radio" name="defMode" id="defNone" value="none">No poner</label>
+        </div>
+        <div class="row3" id="defUtmBox">
+          <label class="f">Zona<input type="number" id="dZone" value="19" min="1" max="60"></label>
+          <label class="f">Hemisf.<select id="dHem"><option value="S" selected>Sur</option><option value="N">Norte</option></select></label>
+          <span></span>
+          <label class="f">Este (m)<input type="number" id="dE" value="179880" step="1"></label>
+          <label class="f" style="grid-column:span 2">Norte (m)<input type="number" id="dN" value="8502860" step="1"></label>
+        </div>
+        <div class="row2" id="defGeoBox" hidden>
+          <label class="f">Latitud<input type="number" id="dLat" value="-13.5226" step="0.000001"></label>
+          <label class="f">Longitud<input type="number" id="dLon" value="-71.9673" step="0.000001"></label>
+        </div>
+        <label class="f">Fecha si no hay EXIF
+          <select id="dDate">
+            <option value="file" selected>Fecha de modificación del archivo</option>
+            <option value="none">No poner fecha</option>
+          </select>
+        </label>
+        <span class="hint">Cada foto se puede corregir individualmente: haz clic en ella.</span>
+      </fieldset>
+
+      <fieldset>
+        <legend>Apariencia</legend>
+        <label class="f">Posición
+          <select id="sPos">
+            <option value="bl" selected>Abajo a la izquierda</option>
+            <option value="br">Abajo a la derecha</option>
+            <option value="tl">Arriba a la izquierda</option>
+            <option value="tr">Arriba a la derecha</option>
+            <option value="band">Franja inferior completa</option>
+          </select>
+        </label>
+        <label class="f">Estilo
+          <select id="sStyle">
+            <option value="box" selected>Recuadro oscuro translúcido</option>
+            <option value="shadow">Solo texto con sombra</option>
+            <option value="light">Recuadro claro</option>
+          </select>
+        </label>
+        <label class="f">Tamaño del texto <span class="rangeval" id="sizeVal"></span>
+          <input type="range" id="sSize" min="1.4" max="5" step="0.1" value="2.6">
+        </label>
+        <label class="f">Color de acento
+          <select id="sAccent">
+            <option value="#f0b429" selected>Ámbar</option>
+            <option value="#ff6b2c">Naranja seguridad</option>
+            <option value="#3fb6ff">Celeste</option>
+            <option value="#5cd68f">Verde</option>
+            <option value="#ffffff">Blanco</option>
+          </select>
+        </label>
+        <div class="btnrow">
+          <button class="btn" type="button" id="btnLogo">Agregar logo</button>
+          <button class="btn" type="button" id="btnLogoX" hidden>Quitar logo</button>
+        </div>
+        <label class="f">Calidad JPG <span class="rangeval" id="qVal"></span>
+          <input type="range" id="sQ" min="0.6" max="1" step="0.02" value="0.9">
+        </label>
+      </fieldset>
+    </aside>
+
+    <main class="board">
+      <div class="drop" id="drop">
+        <p id="dropText">Arrastra aquí una carpeta con fotos, o usa <b>Elegir carpeta</b>. Se leen fecha, hora y GPS del EXIF de cada foto. Todo se procesa en tu navegador; las fotos no se suben a ningún lado.</p>
+        <div class="stats" id="stats"></div>
+      </div>
+      <div class="progress" id="prog" hidden><i></i></div>
+      <div class="msg" id="msg" role="status"></div>
+      <div class="grid" id="grid"></div>
+    </main>
+  </div>
+</div>
+
+<dialog id="dlg">
+  <div class="dlg">
+    <div class="view"><canvas id="bigCanvas"></canvas></div>
+    <div class="side">
+      <h2 id="dName"></h2>
+      <div class="mono" id="dExif"></div>
+      <label class="f">Ubicación de esta foto<input type="text" id="oUbic" placeholder="Vacío = usar la general"></label>
+      <div class="row2">
+        <label class="f">Latitud<input type="number" id="oLat" step="0.000001" placeholder="EXIF / general"></label>
+        <label class="f">Longitud<input type="number" id="oLon" step="0.000001" placeholder="EXIF / general"></label>
+      </div>
+      <label class="f">Fecha y hora<input type="datetime-local" id="oDate"></label>
+      <div class="btnrow">
+        <button class="btn" type="button" id="oApply">Aplicar cambios</button>
+        <button class="btn" type="button" id="oReset">Restablecer</button>
+      </div>
+      <div class="btnrow">
+        <button class="btn primary" type="button" id="oSave">Descargar esta foto</button>
+        <button class="btn" type="button" id="oShare" hidden>Compartir</button>
+        <button class="btn" type="button" id="oClose">Cerrar</button>
+      </div>
+      <div class="msg" id="dMsg"></div>
+    </div>
+  </div>
+</dialog>
+
+<script src="vendor/exifr.lite.umd.js"></script>
+<script src="vendor/jszip.min.js"></script>
+<script>
+(function(){
+"use strict";
+const $=id=>document.getElementById(id);
+
+/* ---------- Geodesia: WGS84 <-> UTM ---------- */
+const A=6378137, F=1/298.257223563, K0=0.9996, E2=F*(2-F), EP2=E2/(1-E2);
+function toUTM(lat,lon){
+  const zone=Math.min(60,Math.floor((lon+180)/6)+1);
+  const phi=lat*Math.PI/180, lam=lon*Math.PI/180, lam0=((zone-1)*6-180+3)*Math.PI/180;
+  const s=Math.sin(phi),c=Math.cos(phi),t=Math.tan(phi);
+  const N=A/Math.sqrt(1-E2*s*s),T=t*t,C=EP2*c*c,Aa=c*(lam-lam0);
+  const e4=E2*E2,e6=e4*E2;
+  const M=A*((1-E2/4-3*e4/64-5*e6/256)*phi-(3*E2/8+3*e4/32+45*e6/1024)*Math.sin(2*phi)+(15*e4/256+45*e6/1024)*Math.sin(4*phi)-(35*e6/3072)*Math.sin(6*phi));
+  const E=K0*N*(Aa+(1-T+C)*Aa**3/6+(5-18*T+T*T+72*C-58*EP2)*Aa**5/120)+500000;
+  let Nn=K0*(M+N*t*(Aa*Aa/2+(5-T+9*C+4*C*C)*Aa**4/24+(61-58*T+T*T+600*C-330*EP2)*Aa**6/720));
+  if(lat<0)Nn+=10000000;
+  const bands="CDEFGHJKLMNPQRSTUVWXX";
+  const band=bands[Math.max(0,Math.min(20,Math.floor((lat+80)/8)))];
+  return {zone,band,E,N:Nn};
+}
+function fromUTM(E,Nn,zone,south){
+  const e1=(1-Math.sqrt(1-E2))/(1+Math.sqrt(1-E2));
+  const x=E-500000,y=south?Nn-10000000:Nn;
+  const M=y/K0,e4=E2*E2,e6=e4*E2;
+  const mu=M/(A*(1-E2/4-3*e4/64-5*e6/256));
+  const p1=mu+(3*e1/2-27*e1**3/32)*Math.sin(2*mu)+(21*e1*e1/16-55*e1**4/32)*Math.sin(4*mu)+(151*e1**3/96)*Math.sin(6*mu)+(1097*e1**4/512)*Math.sin(8*mu);
+  const s=Math.sin(p1),c=Math.cos(p1),t=Math.tan(p1);
+  const N1=A/Math.sqrt(1-E2*s*s),T1=t*t,C1=EP2*c*c,R1=A*(1-E2)/Math.pow(1-E2*s*s,1.5),D=x/(N1*K0);
+  const lat=p1-(N1*t/R1)*(D*D/2-(5+3*T1+10*C1-4*C1*C1-9*EP2)*D**4/24+(61+90*T1+298*C1+45*T1*T1-252*EP2-3*C1*C1)*D**6/720);
+  const lon=(D-(1+2*T1+C1)*D**3/6+(5-2*C1+28*T1-3*C1*C1+8*EP2+24*T1*T1)*D**5/120)/c;
+  return {lat:lat*180/Math.PI, lon:((zone-1)*6-180+3)+lon*180/Math.PI};
+}
+
+/* ---------- Lugares para "ciudad automática" ---------- */
+const PLACES=[
+["Cusco","Cusco",-13.5167,-71.9781],["Wánchaq","Cusco",-13.5250,-71.9670],["San Sebastián","Cusco",-13.5310,-71.9360],
+["San Jerónimo","Cusco",-13.5450,-71.8850],["Santiago","Cusco",-13.5300,-71.9900],["Saylla","Cusco",-13.5700,-71.8300],
+["Poroy","Cusco",-13.4950,-72.0430],["Ccorca","Cusco",-13.5850,-72.0590],["Calca","Cusco",-13.3220,-71.9560],["Pisac","Cusco",-13.4220,-71.8490],
+["Lamay","Cusco",-13.3640,-71.9220],["Coya","Cusco",-13.3870,-71.9020],["Urubamba","Cusco",-13.3050,-72.1160],["Huayoccari","Cusco",-13.3330,-72.0700],
+["Yucay","Cusco",-13.3190,-72.0840],["Huayllabamba","Cusco",-13.3400,-72.0640],["Ollantaytambo","Cusco",-13.2580,-72.2630],["Chinchero","Cusco",-13.3920,-72.0480],
+["Maras","Cusco",-13.3360,-72.1560],["Anta","Cusco",-13.4690,-72.1480],["Huarocondo","Cusco",-13.4140,-72.2080],["Limatambo","Cusco",-13.4800,-72.4420],
+["Oropesa","Cusco",-13.5940,-71.7650],["Lucre","Cusco",-13.6330,-71.7380],["Andahuaylillas","Cusco",-13.6730,-71.6780],["Urcos","Cusco",-13.6870,-71.6240],
+["Paucartambo","Cusco",-13.3170,-71.5960],["Quillabamba","Cusco",-12.8630,-72.6920],["Machupicchu","Cusco",-13.1550,-72.5250],["Sicuani","Cusco",-14.2700,-71.2260],
+["Yauri (Espinar)","Cusco",-14.7920,-71.4100],["Abancay","Apurímac",-13.6340,-72.8810],["Andahuaylas","Apurímac",-13.6560,-73.3870],["Puno","Puno",-15.8400,-70.0219],
+["Juliaca","Puno",-15.5000,-70.1330],["Arequipa","Arequipa",-16.3989,-71.5350],["Moquegua","Moquegua",-17.1960,-70.9350],["Tacna","Tacna",-18.0066,-70.2463],
+["Puerto Maldonado","Madre de Dios",-12.5933,-69.1891],["Ayacucho","Ayacucho",-13.1600,-74.2240],["Huancayo","Junín",-12.0651,-75.2049],["Ica","Ica",-14.0678,-75.7286],
+["Lima","Lima",-12.0464,-77.0428],["Huaraz","Áncash",-9.5278,-77.5278],["Trujillo","La Libertad",-8.1116,-79.0288],["Cajamarca","Cajamarca",-7.1617,-78.5128],
+["Chiclayo","Lambayeque",-6.7714,-79.8409],["Piura","Piura",-5.1945,-80.6328],["Iquitos","Loreto",-3.7491,-73.2538],["Pucallpa","Ucayali",-8.3791,-74.5539]];
+function hav(a,b,c,d){const r=Math.PI/180,dl=(c-a)*r,dn=(d-b)*r;const h=Math.sin(dl/2)**2+Math.cos(a*r)*Math.cos(c*r)*Math.sin(dn/2)**2;return 12742*Math.asin(Math.sqrt(h));}
+function nearestCity(lat,lon){
+  let best=null,bd=1e9;for(const p of PLACES){const d=hav(lat,lon,p[2],p[3]);if(d<bd){bd=d;best=p;}}
+  if(!best)return "";
+  const name=best[0]+", "+best[1]+", Perú";
+  return bd>30?"Cerca de "+name+" (~"+Math.round(bd)+" km)":name;
+}
+
+/* ---------- Formatos ---------- */
+const pad=n=>String(n).padStart(2,"0");
+const fmtDate=d=>pad(d.getDate())+"/"+pad(d.getMonth()+1)+"/"+d.getFullYear()+"  "+pad(d.getHours())+":"+pad(d.getMinutes());
+const grp=n=>Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g," ");
+const toLocalInput=d=>d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate())+"T"+pad(d.getHours())+":"+pad(d.getMinutes());
+
+/* ---------- Ajustes ---------- */
+function S(){
+  const v=id=>$(id).value, ck=id=>$(id).checked;
+  const defMode=document.querySelector('input[name=defMode]:checked').value;
+  let def=null;
+  if(defMode==="utm"){const E=parseFloat(v("dE")),N=parseFloat(v("dN")),z=parseInt(v("dZone"),10);
+    if(isFinite(E)&&isFinite(N)&&z>=1&&z<=60)def=fromUTM(E,N,z,v("dHem")==="S");}
+  else if(defMode==="geo"){const la=parseFloat(v("dLat")),lo=parseFloat(v("dLon"));if(isFinite(la)&&isFinite(lo))def={lat:la,lon:lo};}
+  return {title:v("sTitle").trim(),ubic:v("sUbic").trim(),city:v("sCity").trim(),note:v("sNote").trim(),
+    cityAuto:document.querySelector('input[name=cityMode]:checked').value==="auto",
+    show:{title:ck("shTitle"),ubic:ck("shUbic"),city:ck("shCity"),date:ck("shDate"),utm:ck("shUtm"),geo:ck("shGeo"),alt:ck("shAlt"),note:ck("shNote")},
+    def,dateFallback:v("dDate"),pos:v("sPos"),style:v("sStyle"),size:parseFloat(v("sSize")),accent:v("sAccent"),q:parseFloat(v("sQ"))};
+}
+
+/* ---------- Estado ---------- */
+let photos=[], isSample=true, logo=null, current=null;
+
+function infoFor(p,s){
+  const o=p.over||{};
+  let lat=null,lon=null,src="";
+  if(o.lat!=null&&o.lon!=null){lat=o.lat;lon=o.lon;src="manual";}
+  else if(p.exif.lat!=null){lat=p.exif.lat;lon=p.exif.lon;src="gps";}
+  else if(s.def){lat=s.def.lat;lon=s.def.lon;src="general";}
+  let date=null,dsrc="";
+  if(o.date){date=o.date;dsrc="manual";}
+  else if(p.exif.date){date=p.exif.date;dsrc="exif";}
+  else if(s.dateFallback==="file"&&p.file){date=new Date(p.file.lastModified);dsrc="archivo";}
+  const ubic=o.ubic||s.ubic;
+  const city=(s.cityAuto&&lat!=null)?nearestCity(lat,lon):s.city;
+  const alt=(src==="gps"&&p.exif.alt!=null)?p.exif.alt:null;
+  return {lat,lon,src,date,dsrc,ubic,city,alt,utm:lat!=null?toUTM(lat,lon):null};
+}
+function linesFor(info,s){
+  const L=[];
+  if(s.show.title&&s.title)L.push({t:s.title,b:true});
+  if(s.show.ubic&&info.ubic)L.push({k:"Ubicación",t:info.ubic});
+  if(s.show.city&&info.city)L.push({k:"Ciudad",t:info.city});
+  if(s.show.date&&info.date)L.push({k:"Fecha",t:fmtDate(info.date),m:true});
+  if(s.show.utm&&info.utm){const u=info.utm;L.push({k:"UTM WGS84 "+u.zone+u.band,t:"E "+grp(u.E)+" m   N "+grp(u.N)+" m",m:true});}
+  if(s.show.geo&&info.lat!=null)L.push({k:"Lat / Lon",t:info.lat.toFixed(6)+"°   "+info.lon.toFixed(6)+"°",m:true});
+  if(s.show.alt&&info.alt!=null)L.push({k:"Altitud",t:grp(info.alt)+" m s.n.m.",m:true});
+  if(s.show.note&&s.note)L.push({t:s.note,i:true});
+  return L;
+}
+
+/* ---------- Dibujo del sello ---------- */
+function stamp(ctx,W,H,lines,s){
+  if(!lines.length&&!logo)return;
+  const fs=Math.max(9,Math.min(W,H)*s.size/100);
+  const lh=fs*1.38, padd=fs*0.8, bar=Math.max(2,fs*0.22);
+  const fUI='"Archivo", system-ui, sans-serif', fM='"IBM Plex Mono", ui-monospace, monospace';
+  const items=lines.map(l=>{
+    const size=l.b?fs*1.18:fs;
+    const keyFont="600 "+(fs*0.78)+"px "+fUI;
+    const valFont=(l.b?"700 ":l.i?"italic 400 ":"500 ")+size+"px "+(l.m?fM:fUI);
+    ctx.font=keyFont;const kw=l.k?ctx.measureText(l.k.toUpperCase()+"  ").width:0;
+    ctx.font=valFont;const vw=ctx.measureText(l.t).width;
+    return {l,size,keyFont,valFont,kw,vw,h:l.b?lh*1.12:lh};
+  });
+  const kmax=Math.max(0,...items.map(i=>i.kw));const keyCol=kmax?kmax+fs*0.5:0;
+  let tw=Math.max(0,...items.map(i=>(i.l.k?keyCol:0)+i.vw));
+  const logoH=logo?fs*2.8:0, logoW=logo?logoH*logo.width/logo.height:0;
+  tw=Math.max(tw,logoW);
+  const maxW=W-fs*2-padd*2-bar;
+  const scale=tw>maxW?maxW/tw:1;
+  let th=items.reduce((a,i)=>a+i.h,0)+(logo?logoH+fs*0.5:0);
+  const boxW=(tw*scale)+padd*2+bar, boxH=th*scale+padd*1.6;
+  const m=fs*0.9;
+  let x,y,bw=boxW;
+  if(s.pos==="band"){x=0;y=H-boxH;bw=W;}
+  else{x=s.pos.endsWith("l")?m:W-m-boxW; y=s.pos.startsWith("b")?H-m-boxH:m;}
+  ctx.save();
+  if(s.style==="box"||s.style==="light"){
+    ctx.fillStyle=s.style==="box"?"rgba(10,14,18,0.62)":"rgba(255,255,255,0.82)";
+    const r=s.pos==="band"?0:fs*0.35;
+    ctx.beginPath();ctx.roundRect?ctx.roundRect(x,y,bw,boxH,r):ctx.rect(x,y,bw,boxH);ctx.fill();
+    ctx.fillStyle=s.accent==="#ffffff"&&s.style==="light"?"#222":s.accent;
+    ctx.fillRect(x,y+(s.pos==="band"?0:r),bar,boxH-(s.pos==="band"?0:2*r));
+  }
+  const dark=s.style==="light";
+  const txt=dark?"#121820":"#ffffff", key=dark?"#4a5560":"rgba(255,255,255,0.72)";
+  if(s.style==="shadow"){ctx.shadowColor="rgba(0,0,0,0.85)";ctx.shadowBlur=fs*0.45;ctx.shadowOffsetX=0;ctx.shadowOffsetY=fs*0.06;}
+  ctx.translate(x+bar+padd,y+padd*0.8);ctx.scale(scale,scale);
+  ctx.textBaseline="alphabetic";
+  let cy=0;
+  if(logo){ctx.drawImage(logo,0,0,logoW,logoH);cy+=logoH+fs*0.5;}
+  for(const it of items){
+    cy+=it.h;const base=cy-it.h*0.3;
+    let cx=0;
+    if(it.l.k){ctx.font=it.keyFont;ctx.fillStyle=(it.l.k.startsWith("UTM")&&!dark)?s.accent:key;ctx.fillText(it.l.k.toUpperCase(),0,base);cx=keyCol;}
+    ctx.font=it.valFont;ctx.fillStyle=it.l.b&&!dark?s.accent:txt;ctx.fillText(it.l.t,cx,base);
+  }
+  ctx.restore();
+}
+
+/* ---------- Lectura de fotos ---------- */
+const OK_TYPES=/\.(jpe?g|png|webp)$/i;
+async function readExif(file){
+  const out={date:null,lat:null,lon:null,alt:null};
+  try{
+    const e=await exifr.parse(file,{tiff:true,exif:true,gps:true,ifd1:false,interop:false,xmp:false,icc:false,iptc:false});
+    if(e){
+      const d=e.DateTimeOriginal||e.CreateDate||e.DateTime||e.ModifyDate;
+      if(d instanceof Date&&!isNaN(d))out.date=d;
+      if(typeof e.latitude==="number"&&typeof e.longitude==="number"&&!(e.latitude===0&&e.longitude===0)){out.lat=e.latitude;out.lon=e.longitude;}
+      if(typeof e.GPSAltitude==="number")out.alt=e.GPSAltitudeRef===1?-e.GPSAltitude:e.GPSAltitude;
+    }
+  }catch(err){}
+  return out;
+}
+async function loadFiles(list){
+  const files=[...list].filter(f=>OK_TYPES.test(f.name)||/^image\/(jpeg|png|webp)$/.test(f.type));
+  const skipped=list.length-files.length;
+  if(!files.length){msg("No encontré fotos JPG, PNG o WebP en esa selección."+(skipped?" Si tus fotos son HEIC (iPhone), expórtalas como JPG.":""),true);return;}
+  files.sort((a,b)=>(a.webkitRelativePath||a.name).localeCompare(b.webkitRelativePath||b.name,"es",{numeric:true}));
+  isSample=false;photos=[];$("grid").innerHTML="";
+  setProg(0);msg("Leyendo "+files.length+" fotos…");
+  for(let i=0;i<files.length;i++){
+    const f=files[i];
+    const exif=await readExif(f);
+    let thumb=null;
+    try{thumb=await createImageBitmap(f,{resizeWidth:520,resizeQuality:"medium",imageOrientation:"from-image"});}catch(e){try{thumb=await createImageBitmap(f);}catch(e2){}}
+    const p={id:i,file:f,name:f.name,exif,over:{},thumb};
+    photos.push(p);addCard(p);
+    setProg((i+1)/files.length);
+  }
+  setProg(null);
+  msg(files.length+" fotos listas."+(skipped?" Se omitieron "+skipped+" archivos que no son imágenes compatibles.":""));
+  updateStats();$("btnZip").disabled=false;$("btnShareAll").disabled=false;$("btnShareAll").hidden=!canShareFiles;
+}
+
+/* ---------- Tarjetas ---------- */
+function addCard(p){
+  const b=document.createElement("button");b.type="button";b.className="card";b.dataset.id=p.id;
+  b.innerHTML='<canvas></canvas><div class="meta"><div class="name"></div><div class="tags"></div></div>';
+  b.querySelector(".name").textContent=p.name;
+  b.addEventListener("click",()=>openDlg(p));
+  $("grid").appendChild(b);p.el=b;drawCard(p);
+}
+function drawCard(p){
+  const s=S(),info=infoFor(p,s),cv=p.el.querySelector("canvas");
+  const src=p.thumb;
+  if(src){cv.width=src.width;cv.height=src.height;const c=cv.getContext("2d");c.drawImage(src,0,0);stamp(c,cv.width,cv.height,linesFor(info,s),s);}
+  const tags=p.el.querySelector(".tags");tags.innerHTML="";
+  const add=(t,c)=>{const e=document.createElement("span");e.className="chip "+(c||"");e.textContent=t;tags.appendChild(e);};
+  if(isSample)add("Ejemplo","ex");
+  if(info.src==="gps")add("GPS","ok");else if(info.src==="manual")add("Coord. editadas","ok");else if(info.src==="general")add("Sin GPS · coord. general","warn");else add("Sin coordenadas","warn");
+  if(info.dsrc==="exif")add("Fecha EXIF","ok");else if(info.dsrc==="manual")add("Fecha editada","ok");else if(info.dsrc==="archivo")add("Fecha del archivo","warn");else add("Sin fecha","warn");
+  if(info.utm)add(info.utm.zone+info.utm.band);
+}
+let redrawT=null;
+function redrawAll(){resetShareAll();preparedOne=null;$("oShare").textContent="Compartir";saveSettings();clearTimeout(redrawT);redrawT=setTimeout(()=>{photos.forEach(drawCard);updateStats();if($("dlg").open&&current)drawBig(current);},60);}
+function updateStats(){
+  const st=$("stats");st.innerHTML="";if(isSample||!photos.length)return;
+  const s=S();let gps=0,nod=0;photos.forEach(p=>{const i=infoFor(p,s);if(i.src==="gps")gps++;if(i.dsrc!=="exif"&&i.dsrc!=="manual")nod++;});
+  const add=(t,c)=>{const e=document.createElement("span");e.className="chip "+(c||"");e.textContent=t;st.appendChild(e);};
+  add(photos.length+" fotos");add(gps+" con GPS",gps===photos.length?"ok":"");
+  if(photos.length-gps)add((photos.length-gps)+" sin GPS","warn");
+  if(nod)add(nod+" sin fecha EXIF","warn");
+}
+
+/* ---------- Render a resolución completa ---------- */
+async function fullBitmap(p){
+  if(p.sampleCanvas)return p.sampleCanvas;
+  try{return await createImageBitmap(p.file,{imageOrientation:"from-image"});}catch(e){return await createImageBitmap(p.file);}
+}
+async function renderFull(p){
+  const s=S(),img=await fullBitmap(p);
+  const cv=document.createElement("canvas");cv.width=img.width;cv.height=img.height;
+  const c=cv.getContext("2d");c.drawImage(img,0,0);stamp(c,cv.width,cv.height,linesFor(infoFor(p,s),s),s);
+  if(img.close&&!p.sampleCanvas)img.close();
+  const blob=await new Promise(r=>cv.toBlob(r,"image/jpeg",s.q));
+  cv.width=cv.height=0;return blob;
+}
+const outName=n=>n.replace(/\.[^.]+$/,"")+"_sello.jpg";
+
+/* ---------- Descargas ---------- */
+async function saveFile(filename,data,where){
+  try{
+    const url=URL.createObjectURL(data);
+    const a=document.createElement("a");a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),60000);
+    where("Guardado en Descargas: "+filename);
+  }catch(e){where("No se pudo guardar el archivo: "+(e&&e.message||e),true);}
+}
+const canShareFiles=(()=>{try{return !!(navigator.canShare&&navigator.canShare({files:[new File(["x"],"x.jpg",{type:"image/jpeg"})]}));}catch(e){return false;}})();
+async function shareFiles(files,where){
+  try{
+    if(!navigator.canShare({files})){where("Tu dispositivo no permite compartir tantos archivos a la vez. Usa el ZIP.",true);return;}
+    await navigator.share({files,title:"Fotos con sello"});where("Compartido.");
+  }catch(e){if(e&&e.name==="AbortError")where("Cancelado.");else where("No se pudo compartir: "+(e&&e.message||e),true);}
+}
+$("btnZip").addEventListener("click",async()=>{
+  if(!photos.length)return;
+  const btn=$("btnZip");btn.disabled=true;
+  try{
+    const zip=new JSZip(),used={};
+    for(let i=0;i<photos.length;i++){
+      msg("Aplicando sello "+(i+1)+" de "+photos.length+"…");setProg(i/photos.length);
+      let n=outName(photos[i].name);if(used[n]){used[n]++;n=n.replace(/\.jpg$/,"_"+used[n]+".jpg");}else used[n]=1;
+      zip.file(n,await renderFull(photos[i]));
+    }
+    msg("Empaquetando ZIP…");setProg(1);
+    const blob=await zip.generateAsync({type:"blob",compression:"STORE"});
+    setProg(null);
+    const d=new Date();
+    await saveFile("fotos_con_sello_"+d.getFullYear()+pad(d.getMonth()+1)+pad(d.getDate())+".zip",blob,msg);
+  }catch(e){setProg(null);msg("Ocurrió un error al procesar: "+(e&&e.message||e),true);}
+  btn.disabled=false;
+});
+
+/* Compartir: se preparan los archivos primero y se comparten con un segundo toque,
+   porque el sistema solo permite compartir justo después de un toque del usuario. */
+let preparedAll=null;
+function resetShareAll(){preparedAll=null;const b=$("btnShareAll");b.textContent="Compartir todas";}
+$("btnShareAll").addEventListener("click",async()=>{
+  const b=$("btnShareAll");
+  if(preparedAll){const f=preparedAll;await shareFiles(f,msg);resetShareAll();return;}
+  b.disabled=true;
+  try{
+    const files=[];
+    for(let i=0;i<photos.length;i++){msg("Preparando "+(i+1)+" de "+photos.length+"…");setProg(i/photos.length);
+      files.push(new File([await renderFull(photos[i])],outName(photos[i].name),{type:"image/jpeg"}));}
+    setProg(null);preparedAll=files;b.textContent="Compartir "+files.length+" fotos ahora";
+    msg("Fotos listas. Toca «Compartir "+files.length+" fotos ahora» para enviarlas (WhatsApp, Drive, correo…).");
+  }catch(e){setProg(null);msg("Error al preparar: "+(e&&e.message||e),true);}
+  b.disabled=false;
+});
+let preparedOne=null;
+$("oShare").addEventListener("click",async()=>{
+  if(!current)return;const b=$("oShare");
+  if(preparedOne&&preparedOne.p===current){await shareFiles([preparedOne.f],dmsg);preparedOne=null;b.textContent="Compartir";return;}
+  b.disabled=true;dmsg("Preparando…");
+  preparedOne={p:current,f:new File([await renderFull(current)],outName(current.name),{type:"image/jpeg"})};
+  b.disabled=false;b.textContent="Compartir ahora";dmsg("Lista. Toca «Compartir ahora».");
+});
+
+/* ---------- Diálogo por foto ---------- */
+async function drawBig(p){
+  const s=S(),img=await fullBitmap(p);
+  const cv=$("bigCanvas"),maxW=1800,k=Math.min(1,maxW/img.width);
+  cv.width=Math.round(img.width*k);cv.height=Math.round(img.height*k);
+  const c=cv.getContext("2d");c.drawImage(img,0,0,cv.width,cv.height);
+  stamp(c,cv.width,cv.height,linesFor(infoFor(p,s),s),s);
+  if(img.close&&!p.sampleCanvas)img.close();
+}
+function openDlg(p){
+  current=p;const e=p.exif;
+  preparedOne=null;$("oShare").textContent="Compartir";$("oShare").hidden=!canShareFiles;
+  $("dName").textContent=p.name;
+  $("dExif").textContent=[
+    e.date?"EXIF fecha: "+fmtDate(e.date):"Sin fecha EXIF",
+    e.lat!=null?"EXIF GPS: "+e.lat.toFixed(6)+", "+e.lon.toFixed(6)+(e.alt!=null?" · "+Math.round(e.alt)+" m":""):"Sin GPS en EXIF"].join("\n");
+  $("dExif").style.whiteSpace="pre-line";
+  $("oUbic").value=p.over.ubic||"";
+  $("oLat").value=p.over.lat??"";$("oLon").value=p.over.lon??"";
+  const d=p.over.date||e.date;$("oDate").value=d?toLocalInput(d):"";
+  $("dMsg").textContent="";
+  $("dlg").showModal();drawBig(p);
+}
+$("oApply").addEventListener("click",()=>{
+  if(!current)return;const o={};
+  const u=$("oUbic").value.trim();if(u)o.ubic=u;
+  const la=parseFloat($("oLat").value),lo=parseFloat($("oLon").value);
+  if(isFinite(la)&&isFinite(lo)){if(Math.abs(la)>90||Math.abs(lo)>180){dmsg("Latitud o longitud fuera de rango.",true);return;}o.lat=la;o.lon=lo;}
+  const dv=$("oDate").value;if(dv){const d=new Date(dv);const ed=current.exif.date;if(!ed||Math.abs(d-ed)>59000)o.date=d;}
+  current.over=o;preparedOne=null;$("oShare").textContent="Compartir";drawCard(current);drawBig(current);updateStats();dmsg("Cambios aplicados a esta foto.");
+});
+$("oReset").addEventListener("click",()=>{if(!current)return;current.over={};openDlg(current);drawCard(current);updateStats();});
+$("oClose").addEventListener("click",()=>$("dlg").close());
+$("dlg").addEventListener("click",e=>{if(e.target===$("dlg"))$("dlg").close();});
+$("oSave").addEventListener("click",async()=>{if(!current)return;dmsg("Generando…");const b=await renderFull(current);saveFile(outName(current.name),b,dmsg);});
+function dmsg(t,err){const m=$("dMsg");m.textContent=t;m.classList.toggle("err",!!err);}
+
+/* ---------- UI general ---------- */
+function msg(t,err){const m=$("msg");m.textContent=t;m.classList.toggle("err",!!err);}
+function setProg(v){const p=$("prog");if(v==null){p.hidden=true;return;}p.hidden=false;p.firstElementChild.style.width=(v*100).toFixed(1)+"%";}
+$("btnFolder").addEventListener("click",()=>$("inFolder").click());
+$("btnFiles").addEventListener("click",()=>$("inFiles").click());
+$("inFolder").addEventListener("change",e=>{if(e.target.files.length)loadFiles(e.target.files);e.target.value="";});
+$("inFiles").addEventListener("change",e=>{if(e.target.files.length)loadFiles(e.target.files);e.target.value="";});
+$("btnLogo").addEventListener("click",()=>$("inLogo").click());
+$("inLogo").addEventListener("change",async e=>{
+  const f=e.target.files[0];e.target.value="";if(!f)return;
+  const url=URL.createObjectURL(f);const im=new Image();
+  im.onload=()=>{logo=im;$("btnLogoX").hidden=false;storeLogo(f);redrawAll();};
+  im.onerror=()=>msg("No se pudo leer el logo. Usa PNG o JPG.",true);im.src=url;
+});
+$("btnLogoX").addEventListener("click",()=>{logo=null;$("btnLogoX").hidden=true;try{localStorage.removeItem("sello.logo");}catch(e){}redrawAll();});
+$("settings").addEventListener("input",e=>{syncUI();redrawAll();});
+$("settings").addEventListener("change",e=>{syncUI();redrawAll();});
+function syncUI(){
+  const m=document.querySelector('input[name=defMode]:checked').value;
+  $("defUtmBox").hidden=m!=="utm";$("defGeoBox").hidden=m!=="geo";
+  $("sCity").disabled=document.querySelector('input[name=cityMode]:checked').value==="auto";
+  $("sizeVal").textContent=parseFloat($("sSize").value).toFixed(1)+" % del lado menor";
+  $("qVal").textContent=Math.round(parseFloat($("sQ").value)*100)+" %";
+}
+
+/* Arrastrar y soltar (incluye carpetas) */
+const drop=$("drop");
+["dragenter","dragover"].forEach(t=>drop.addEventListener(t,e=>{e.preventDefault();drop.classList.add("over");}));
+["dragleave","drop"].forEach(t=>drop.addEventListener(t,e=>{e.preventDefault();drop.classList.remove("over");}));
+drop.addEventListener("drop",async e=>{
+  const items=[...(e.dataTransfer.items||[])];const out=[];
+  const walk=async ent=>{
+    if(!ent)return;
+    if(ent.isFile){await new Promise(r=>ent.file(f=>{out.push(f);r();},r));}
+    else if(ent.isDirectory){const rd=ent.createReader();let batch;do{batch=await new Promise(r=>rd.readEntries(r,()=>r([])));for(const b of batch)await walk(b);}while(batch.length);}
+  };
+  if(items.length&&items[0].webkitGetAsEntry){for(const it of items)await walk(it.webkitGetAsEntry());}
+  else out.push(...e.dataTransfer.files);
+  if(out.length)loadFiles(out);
+});
+
+/* ---------- Ejemplo inicial ---------- */
+function sampleCanvas(W,H,seed){
+  const c=document.createElement("canvas");c.width=W;c.height=H;const g=c.getContext("2d");
+  const sky=g.createLinearGradient(0,0,0,H*0.6);sky.addColorStop(0,"#6f9fd0");sky.addColorStop(1,"#cfe1ee");g.fillStyle=sky;g.fillRect(0,0,W,H);
+  const hills=[["#7d8f86",0.42],["#5f7366",0.52],["#8a7a64",0.66]];
+  hills.forEach(([col,b],k)=>{g.fillStyle=col;g.beginPath();g.moveTo(0,H);for(let x=0;x<=W;x+=W/40){g.lineTo(x,H*b+Math.sin(x/W*6+k*2+seed)*H*0.05+Math.sin(x/W*17+seed)*H*0.015);}g.lineTo(W,H);g.fill();});
+  g.fillStyle="#9b9a94";g.fillRect(W*0.18,H*0.48,W*0.36,H*0.3);
+  g.fillStyle="#b9b5aa";for(let i=0;i<4;i++)g.fillRect(W*0.18,H*(0.48+i*0.075),W*0.36,H*0.012);
+  g.strokeStyle="#6b4b2a";g.lineWidth=W*0.004;for(let i=0;i<6;i++){g.beginPath();g.moveTo(W*(0.2+i*0.065),H*0.48);g.lineTo(W*(0.2+i*0.065),H*0.2);g.stroke();}
+  g.beginPath();g.moveTo(W*0.18,H*0.25);g.lineTo(W*0.56,H*0.25);g.stroke();
+  g.fillStyle="#8c6f4e";g.fillRect(0,H*0.78,W,H*0.22);
+  return c;
+}
+function initSample(){
+  const ex=[
+    {name:"IMG_20261021_093412.jpg",exif:{date:new Date(2026,9,21,9,34),lat:-13.52262,lon:-71.96731,alt:3341},seed:0.4,w:1600,h:1200},
+    {name:"IMG_20261021_101558.jpg",exif:{date:new Date(2026,9,21,10,15),lat:-13.52281,lon:-71.96702,alt:3339},seed:1.7,w:1600,h:1200},
+    {name:"DSC_0045.jpg",exif:{date:null,lat:null,lon:null,alt:null},seed:3.1,w:1600,h:1200}];
+  ex.forEach((e,i)=>{const cv=sampleCanvas(e.w,e.h,e.seed);const th=document.createElement("canvas");th.width=520;th.height=Math.round(520*e.h/e.w);th.getContext("2d").drawImage(cv,0,0,th.width,th.height);
+    const p={id:i,file:null,name:e.name,exif:e.exif,over:{},thumb:th,sampleCanvas:cv};photos.push(p);addCard(p);});
+  msg("Vista de ejemplo con fotos simuladas. Elige tu carpeta para trabajar con tus fotos.");
+}
+/* ---------- Ajustes guardados en el dispositivo ---------- */
+const KEY="sello.settings.v1";
+function saveSettings(){
+  const o={};document.querySelectorAll("#settings input, #settings select").forEach(el=>{if(!el.id)return;o[el.id]=(el.type==="checkbox"||el.type==="radio")?el.checked:el.value;});
+  try{localStorage.setItem(KEY,JSON.stringify(o));}catch(e){}
+}
+function loadSettings(){
+  let o=null;try{o=JSON.parse(localStorage.getItem(KEY)||"null");}catch(e){}
+  if(o)Object.keys(o).forEach(id=>{const el=$(id);if(!el)return;if(el.type==="checkbox"||el.type==="radio")el.checked=!!o[id];else el.value=o[id];});
+  try{const d=localStorage.getItem("sello.logo");if(d){const im=new Image();im.onload=()=>{logo=im;$("btnLogoX").hidden=false;redrawAll();};im.src=d;}}catch(e){}
+}
+function storeLogo(f){
+  const r=new FileReader();r.onload=()=>{try{localStorage.setItem("sello.logo",r.result);}catch(e){msg("El logo es muy pesado para recordarlo; se usará solo en esta sesión.");}};r.readAsDataURL(f);
+}
+
+/* ---------- Instalación y modo sin conexión ---------- */
+let installEvt=null;
+const isStandalone=()=>matchMedia("(display-mode: standalone)").matches||navigator.standalone===true;
+window.addEventListener("beforeinstallprompt",e=>{
+  e.preventDefault();installEvt=e;
+  let dismissed=false;try{dismissed=localStorage.getItem("sello.noInstall")==="1";}catch(_){}
+  if(!dismissed&&!isStandalone())$("installBar").hidden=false;
+});
+$("btnInstall").addEventListener("click",async()=>{
+  if(!installEvt)return;installEvt.prompt();
+  try{const r=await installEvt.userChoice;if(r.outcome==="accepted")$("installBar").hidden=true;}catch(e){}
+  installEvt=null;
+});
+$("btnInstallX").addEventListener("click",()=>{$("installBar").hidden=true;try{localStorage.setItem("sello.noInstall","1");}catch(e){}});
+window.addEventListener("appinstalled",()=>{$("installBar").hidden=true;msg("App instalada. Ya puedes abrirla desde tu escritorio o pantalla de inicio.");});
+if("serviceWorker" in navigator&&location.protocol!=="file:"){
+  window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
+}
+
+/* Fotos recibidas desde "Compartir" de la galería (Android) */
+async function takeShared(){
+  if(!/[?&]shared=1/.test(location.search)||!("caches" in window))return false;
+  history.replaceState(null,"",location.pathname);
+  try{
+    const c=await caches.open("sello-shared");const keys=await c.keys();const files=[];
+    for(const k of keys){const r=await c.match(k);const b=await r.blob();
+      const name=decodeURIComponent(r.headers.get("X-Name")||("foto_"+files.length+".jpg"));
+      const lm=parseInt(r.headers.get("X-LastModified")||"0",10)||Date.now();
+      files.push(new File([b],name,{type:b.type||"image/jpeg",lastModified:lm}));await c.delete(k);}
+    if(files.length){loadFiles(files);return true;}
+  }catch(e){msg("No se pudieron recibir las fotos compartidas.",true);}
+  return false;
+}
+
+loadSettings();syncUI();
+takeShared().then(got=>{if(!got&&!photos.length)initSample();});
+if(document.fonts&&document.fonts.ready)document.fonts.ready.then(redrawAll);
+})();
+</script>
+
+</body>
+</html>
