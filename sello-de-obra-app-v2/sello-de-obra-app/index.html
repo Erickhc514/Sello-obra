@@ -262,7 +262,7 @@ dialog::backdrop{background:rgba(5,10,15,.6)}
           </label>
           <label class="f">Prefijo (opcional)<input type="text" id="sPrefix" value="" placeholder="Ej. AURORA_"></label>
           <label class="f">Dividir el ZIP cada
-            <select id="sPart"><option value="250">250 MB</option><option value="500" selected>500 MB</option><option value="1000">1 GB</option><option value="1900">1,9 GB</option></select>
+            <select id="sPart"><option value="250">250 MB</option><option value="300" selected>300 MB</option><option value="500">500 MB</option><option value="1000">1 GB</option><option value="1900">1,9 GB</option></select>
           </label>
           <label class="inl"><input type="checkbox" id="keepExif" checked>Conservar los datos EXIF (GPS, fecha, cámara)</label>
           <label class="inl"><input type="checkbox" id="incPts" checked>Incluir lista de puntos (Excel CSV y KML para Google Earth)</label>
@@ -297,6 +297,9 @@ dialog::backdrop{background:rgba(5,10,15,.6)}
         <div class="grp">
           <button class="btn sm" id="selAll" type="button">Seleccionar todas</button>
           <button class="btn sm" id="selNone" type="button">Ninguna</button>
+          <button class="btn sm" id="selFailed" type="button" hidden>Solo las que fallaron</button>
+          <button class="btn sm" id="selSkipDone" type="button">Quitar las ya exportadas…</button>
+          <input type="file" id="inDoneZip" accept=".zip,application/zip" multiple hidden>
         </div>
         <div class="grp">
           <label class="inl" for="sOrder">Orden</label>
@@ -551,7 +554,7 @@ async function loadFiles(list,append){
 function clearAll(){
   loadToken++;
   photos.forEach(p=>{if(p.bmp&&p.bmp.close)p.bmp.close();if(p.el)io.unobserve(p.el);});
-  photos=[];$("grid").innerHTML="";$("dls").innerHTML="";Pool.lo.length=0;
+  photos=[];$("grid").innerHTML="";clearParts();Pool.lo.length=0;
   updateStats();updateButtons();
 }
 
@@ -634,6 +637,7 @@ function updateStats(){
   if(nod)add(nod+" sin fecha EXIF","warn");
 }
 function updateButtons(){
+  $("selFailed").hidden=!photos.some(p=>p.failed);
   const has=photos.length>0&&!isSample,busy=!!running;
   $("btnZip").disabled=!has||busy;$("btnDir").disabled=!has||busy;$("btnShare").disabled=!has||busy;
   $("btnClear").hidden=!has;$("btnFolder").disabled=busy;$("btnFiles").disabled=busy;
@@ -712,11 +716,18 @@ function saveBlob(name,blob){
   const a=document.createElement("a");a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();
   setTimeout(()=>URL.revokeObjectURL(url),120000);
 }
+/* Solo se guardan en memoria las 2 últimas partes del ZIP (para volver a descargarlas);
+   las anteriores se liberan para no agotar la memoria con miles de fotos. */
+const keptParts=[];
 function addDownload(name,blob){
   const b=document.createElement("button");b.className="btn sm";b.type="button";
   b.textContent="Descargar "+name+" ("+fmtBytes(blob.size)+")";
-  b.addEventListener("click",()=>saveBlob(name,blob));$("dls").appendChild(b);
+  const ref={blob,b,name,size:blob.size};
+  b.addEventListener("click",()=>{if(ref.blob)saveBlob(name,ref.blob);});$("dls").appendChild(b);
+  keptParts.push(ref);
+  while(keptParts.length>2){const o=keptParts.shift();o.blob=null;o.b.disabled=true;o.b.textContent=o.name+" ("+fmtBytes(o.size)+") · ya descargado";}
 }
+function clearParts(){keptParts.forEach(o=>o.blob=null);keptParts.length=0;$("dls").innerHTML="";}
 let wakeLock=null;
 async function keepAwake(on){
   try{if(on&&navigator.wakeLock&&!wakeLock){wakeLock=await navigator.wakeLock.request("screen");wakeLock.addEventListener("release",()=>wakeLock=null);}
@@ -732,92 +743,119 @@ async function exportRun(mode,dirHandle){
   if(!list.length){msg("No hay fotos seleccionadas.",true);return;}
   const s=S();
   const names=makeNames(list,s);
-  const jobs=list.map((p,i)=>({p,name:names[i],lines:linesFor(infoFor(p,s),s),date:infoFor(p,s).date}));
+  const jobs=list.map((p,i)=>({p,name:names[i],lines:linesFor(infoFor(p,s),s),date:infoFor(p,s).date,ok:false,err:""}));
   const opt={maxSide:s.maxSide,q:s.q,keepExif:s.keepExif,maxPixels:MAX_PIX};
   const limit=s.partMB*1048576;
   const run={cancel:false};running=run;updateButtons();
-  $("dls").innerHTML="";msg("");showProg(true,true);keepAwake(true);photos.forEach(p=>p.el&&p.el.classList.remove("fail"));
+  clearParts();msg("");showProg(true,true);keepAwake(true);
+  list.forEach(p=>{p.failed=false;p.el&&p.el.classList.remove("fail");});
   const t0=performance.now();
   const stamp=new Date(),tag=stamp.getFullYear()+pad(stamp.getMonth()+1)+pad(stamp.getDate())+"_"+pad(stamp.getHours())+pad(stamp.getMinutes());
   const baseZip=(s.prefix||"fotos_con_sello_")+tag;
-  let zip=mode==="zip"?new ZipPart():null,partNo=1,zips=[];
-  const shareFiles=[];const failed=[];
-  let done=0,bytes=0;
-  const finishPart=(last)=>{
+  let zip=mode==="zip"?new ZipPart():null,partNo=0,partsMade=0;
+  const shareFiles=[];
+  let okCount=0,bytes=0,phase="";
+  const finishPart=()=>{
     if(!zip||!zip.n)return;
-    const nm=baseZip+(last&&partNo===1?"":"_parte"+partNo)+".zip";
-    const blob=zip.finish();zips.push({nm,blob});
-    addDownload(nm,blob);
-    saveBlob(nm,blob);
-    zip=new ZipPart();partNo++;
+    partNo++;partsMade++;
+    const nm=baseZip+"_parte"+partNo+".zip";
+    const blob=zip.finish();
+    zip=new ZipPart();
+    addDownload(nm,blob);saveBlob(nm,blob);
   };
-  const results=new Map();let next=0,launched=0;
-  const slots=renderSlots();
-  const report=()=>{
-    const el=(performance.now()-t0)/1000,rate=done?el/done:0;
-    setProgress(done/jobs.length,"Foto "+done+" de "+jobs.length+(failed.length?" · "+failed.length+" con error":""),done>1?"Quedan ~"+fmtTime(rate*(jobs.length-done))+" · "+fmtBytes(bytes):"");
+  const failCount=()=>jobs.filter(j=>!j.ok&&j.err).length;
+  const report=(doneInPass,totalInPass)=>{
+    const el=(performance.now()-t0)/1000,rate=okCount?el/okCount:0,left=jobs.length-okCount;
+    setProgress(okCount/jobs.length,phase+"Listas "+okCount+" de "+jobs.length+(failCount()&&!phase?" · "+failCount()+" para reintentar":""),okCount>1?"Quedan ~"+fmtTime(rate*left)+" · "+fmtBytes(bytes):"");
   };
-  report();
-  async function consume(idx,r){
-    const j=jobs[idx];
-    if(r.error){if(!run.cancel){failed.push(j.p);j.p.el&&j.p.el.classList.add("fail");}return;}
-    bytes+=r.size;
+  async function consume(j,r){
     if(mode==="zip"){
-      if(zip.n&&zip.off+r.size+200>limit)finishPart(false);
+      if(zip.n&&zip.off+r.size+200>limit)finishPart();
       zip.add(j.name,r.blob,r.crc,r.size,j.date);
     }else if(mode==="dir"){
       const fh=await dirHandle.getFileHandle(j.name,{create:true});
       const w=await fh.createWritable();await w.write(r.blob);await w.close();
     }else shareFiles.push(new File([r.blob],j.name,{type:"image/jpeg",lastModified:j.date?j.date.getTime():Date.now()}));
   }
-  try{
-    await new Promise((resolve)=>{
-      let inflight=0,draining=false,ended=false;
+  /* Una pasada sobre una lista de trabajos. Si fallan varias seguidas (memoria llena),
+     cierra la parte actual del ZIP para liberar memoria, espera y continúa. */
+  async function pass(list,slots){
+    const results=new Map();let next=0,launched=0,inflight=0,consec=0;
+    await new Promise(resolve=>{
+      let draining=false,ended=false;
       const end=()=>{if(!ended){ended=true;resolve();}};
       async function drain(){
         if(draining)return;draining=true;
         while(results.has(next)){
-          const rr=results.get(next);results.delete(next);
-          try{await consume(next,rr);}catch(e){failed.push(jobs[next].p);run.err=e;}
-          next++;done++;report();
+          const r=results.get(next),j=list[next];results.delete(next);
+          if(r.error){j.err=r.error;consec++;}
+          else{
+            try{await consume(j,r);j.ok=true;j.err="";okCount++;bytes+=r.size;consec=0;j.p.exported=true;}
+            catch(e){j.err=(e&&e.message)||String(e);consec++;}
+          }
+          next++;report();
+          if(consec>=3&&!run.cancel){
+            consec=0;
+            if(mode==="zip")finishPart();
+            phase="Liberando memoria… ";report();
+            await sleep(2500);phase="";
+          }
         }
         draining=false;
-        if(next>=jobs.length||(run.cancel&&inflight===0))end();else launch();
+        if(next>=list.length||(run.cancel&&inflight===0))end();else launch();
       }
       function launch(){
-        while(!run.cancel&&inflight<slots&&launched<jobs.length&&(launched-next)<slots+2){
-          const idx=launched++;inflight++;const j=jobs[idx];
-          renderFull(j.p.file,j.lines,s,opt).then(r=>({blob:r.blob,crc:r.crc,size:r.size}),e=>({error:e&&e.message||String(e)}))
+        while(!run.cancel&&inflight<slots&&launched<list.length&&(launched-next)<slots+2){
+          const idx=launched++;inflight++;const j=list[idx];
+          renderFull(j.p.file,j.lines,s,opt).then(r=>({blob:r.blob,crc:r.crc,size:r.size}),e=>({error:(e&&e.message)||String(e)}))
             .then(r=>{inflight--;results.set(idx,r);drain();});
         }
         if(run.cancel&&inflight===0&&!draining)end();
       }
-      launch();
+      if(!list.length)end();else launch();
     });
+  }
+  try{
+    report();
+    await pass(jobs,renderSlots());
+    /* Reintentos: de a una foto, con la memoria liberada */
+    for(let round=1;round<=3&&!run.cancel;round++){
+      const retry=jobs.filter(j=>!j.ok);
+      if(!retry.length)break;
+      if(mode==="zip")finishPart();
+      phase="Reintento "+round+" de 3 ("+retry.length+" fotos) · ";report();
+      await sleep(1500*round);
+      await pass(retry,1);
+    }
+    phase="";
+    const failedJobs=jobs.filter(j=>!j.ok);
+    failedJobs.forEach(j=>{j.p.failed=true;j.p.el&&j.p.el.classList.add("fail");});
     if(run.cancel){
-      msg("Exportación cancelada."+(mode==="dir"&&done?" Ya se guardaron "+done+" fotos en la carpeta.":""));
-      if(mode==="zip"&&zip&&zip.n){msg("Exportación cancelada. Se armó un ZIP con las "+zip.n+" fotos ya listas.");finishPart(true);}
+      if(mode==="zip"&&zip&&zip.n)finishPart();
+      msg("Exportación cancelada. "+okCount+" fotos ya quedaron listas"+(mode==="dir"?" en la carpeta.":"."));
     }else{
       if(s.incPts&&mode!=="share"){
-        const okList=[],okNames=[];jobs.forEach((j,i)=>{if(!failed.includes(j.p)){okList.push(j.p);okNames.push(j.name);}});
-        const pf=pointsFiles(okList,okNames,s);
+        const okJobs=jobs.filter(j=>j.ok);
+        const pf=pointsFiles(okJobs.map(j=>j.p),okJobs.map(j=>j.name),s);
         if(mode==="zip"){zip.addText("puntos_fotos.csv",pf.csv);zip.addText("puntos_fotos.kml",pf.kml);}
         else if(mode==="dir"){for(const [n,t] of [["puntos_fotos.csv",pf.csv],["puntos_fotos.kml",pf.kml]]){const fh=await dirHandle.getFileHandle(n,{create:true});const w=await fh.createWritable();await w.write(t);await w.close();}}
       }
-      if(mode==="zip")finishPart(true);
+      if(mode==="zip")finishPart();
       const el=fmtTime((performance.now()-t0)/1000);
-      const ok=jobs.length-failed.length;
-      if(mode==="zip")msg(ok+" fotos exportadas en "+el+(zips.length>1?" · "+zips.length+" archivos ZIP. Si el navegador pregunta, permite descargar varios archivos; también puedes usar los botones de abajo.":". El ZIP se está guardando en Descargas; si no aparece, usa el botón de abajo."));
-      else if(mode==="dir")msg(ok+" fotos guardadas en la carpeta «"+dirHandle.name+"» en "+el+".");
+      if(mode==="zip")msg(okCount+" fotos exportadas en "+el+" · "+partsMade+(partsMade===1?" archivo ZIP":" archivos ZIP")+" en Descargas."+(partsMade>1?" Si el navegador pregunta, permite descargar varios archivos.":""));
+      else if(mode==="dir")msg(okCount+" fotos guardadas en la carpeta «"+dirHandle.name+"» en "+el+".");
       else{
         const btn=document.createElement("button");btn.className="btn primary";btn.type="button";btn.textContent="Compartir "+shareFiles.length+" fotos ahora";
         btn.addEventListener("click",async()=>{try{if(navigator.canShare&&!navigator.canShare({files:shareFiles})){msg("Tu dispositivo no permite compartir tantas fotos juntas. Selecciona menos o usa el ZIP.",true);return;}await navigator.share({files:shareFiles,title:"Fotos con sello"});msg("Compartido.");}catch(e){if(!(e&&e.name==="AbortError"))msg("No se pudo compartir: "+(e&&e.message||e),true);}});
         $("dls").appendChild(btn);msg(shareFiles.length+" fotos listas. Toca «Compartir» para enviarlas a WhatsApp, Drive o correo.");
       }
-      if(failed.length)msg($("msg").textContent+" "+failed.length+" fotos no se pudieron procesar (marcadas en rojo): "+failed.slice(0,4).map(p=>p.name).join(", ")+(failed.length>4?"…":"")+".",true);
+      if(failedJobs.length){
+        const why=failedJobs[0].err||"error desconocido";
+        msg($("msg").textContent+" "+failedJobs.length+" fotos no se pudieron procesar ni reintentando (marcadas en rojo). Motivo: "+why+". Usa «Solo las que fallaron» y vuelve a exportar"+(s.maxSide===0?", o baja el tamaño de las fotos en Exportación.":"."),true);
+      }
     }
   }catch(e){msg("La exportación se detuvo: "+(e&&e.message||e),true);}
-  finally{running=null;showProg(false);keepAwake(false);updateButtons();}
+  finally{running=null;showProg(false);keepAwake(false);updateButtons();updateStats();}
 }
 $("btnZip").addEventListener("click",()=>exportRun("zip"));
 $("btnDir").addEventListener("click",async()=>{
@@ -908,6 +946,43 @@ $("inFiles").addEventListener("change",e=>{if(e.target.files.length)loadFiles(e.
 $("selAll").addEventListener("click",()=>{photos.forEach(p=>{p.sel=true;if(p.el)p.el.querySelector("input").checked=true;});renumber();redrawAll(false);});
 $("selNone").addEventListener("click",()=>{photos.forEach(p=>{p.sel=false;if(p.el)p.el.querySelector("input").checked=false;});renumber();redrawAll(false);});
 $("sOrder").addEventListener("change",applyOrder);
+function setSel(fn){photos.forEach(p=>{p.sel=!!fn(p);if(p.el)p.el.querySelector("input").checked=p.sel;});renumber();redrawAll(false);}
+$("selFailed").addEventListener("click",()=>{const n=photos.filter(p=>p.failed).length;setSel(p=>p.failed);msg(n+" fotos seleccionadas (las que fallaron). Ahora pulsa Exportar ZIP.");});
+$("selSkipDone").addEventListener("click",()=>{if(!photos.length||isSample){msg("Primero elige tus fotos.",true);return;}$("inDoneZip").click();});
+/* Lee solo el índice de los ZIP ya exportados (rápido, sin abrir las fotos) */
+async function zipNames(file){
+  const tailLen=Math.min(file.size,66000);
+  const tail=new Uint8Array(await file.slice(file.size-tailLen).arrayBuffer());
+  let e=-1;for(let i=tail.length-22;i>=0;i--){if(tail[i]===0x50&&tail[i+1]===0x4b&&tail[i+2]===5&&tail[i+3]===6){e=i;break;}}
+  if(e<0)throw new Error("no es un ZIP válido");
+  const dv=new DataView(tail.buffer,e);
+  const cdSize=dv.getUint32(12,true),cdOff=dv.getUint32(16,true);
+  const cd=new Uint8Array(await file.slice(cdOff,cdOff+cdSize).arrayBuffer());
+  const out=[],td=new TextDecoder();let i=0;
+  while(i+46<=cd.length&&cd[i]===0x50&&cd[i+1]===0x4b&&cd[i+2]===1&&cd[i+3]===2){
+    const v=new DataView(cd.buffer,cd.byteOffset+i);
+    const n=v.getUint16(28,true),x=v.getUint16(30,true),c=v.getUint16(32,true);
+    out.push(td.decode(cd.subarray(i+46,i+46+n)).split("/").pop());i+=46+n+x+c;
+  }
+  return out;
+}
+$("inDoneZip").addEventListener("change",async e=>{
+  const files=[...e.target.files];e.target.value="";if(!files.length)return;
+  let names=[];
+  for(const f of files){try{names=names.concat(await zipNames(f));}catch(err){msg("No pude leer "+f.name+": "+err.message,true);return;}}
+  const done=new Set(names.filter(n=>/\.jpe?g$/i.test(n)).map(n=>n.toLowerCase()));
+  let quit=0;
+  for(const p of photos){
+    const base=p.name.replace(/\.[^.]+$/,"").toLowerCase();
+    let hit=false;for(const n of done){if(n.includes(base)){hit=true;break;}}
+    if(hit&&p.sel){p.sel=false;quit++;}
+    if(hit)p.exported=true;
+  }
+  photos.forEach(p=>{if(p.el)p.el.querySelector("input").checked=p.sel;});
+  renumber();redrawAll(false);updateStats();
+  const left=photos.filter(p=>p.sel).length;
+  msg("Encontré "+done.size+" fotos en "+files.length+" ZIP. Quité "+quit+" de la selección; quedan "+left+" por exportar. Pulsa Exportar ZIP.");
+});
 
 /* Logo */
 $("btnLogo").addEventListener("click",()=>$("inLogo").click());

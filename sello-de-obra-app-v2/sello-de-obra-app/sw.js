@@ -1,5 +1,5 @@
 /* Sello de Obra — service worker: funciona sin conexión y recibe fotos compartidas */
-const VERSION = "sello-v2";
+const VERSION = "sello-v3";
 const FILES = [
   "./",
   "index.html",
