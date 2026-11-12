@@ -23,7 +23,7 @@ jobs:
           fi
           APP=$(dirname "$CFG")
           WEB=""
-          for f in $(find . -name stamp.js -not -path '*/node_modules/*' -not -path "$APP/*"); do
+          for f in $(find . -name stamp.js -not -path '*/node_modules/*' -not -path '*/www/*' -not -path '*/assets/*' -not -path './.git/*'); do
             d=$(dirname "$f")
             if [ -f "$d/index.html" ] && [ -f "$d/worker.js" ]; then
               if [ -f "$d/vendor/capacitor.js" ]; then WEB="$d"; break; fi
