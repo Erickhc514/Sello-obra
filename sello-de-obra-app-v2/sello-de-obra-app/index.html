@@ -125,6 +125,44 @@ dialog::backdrop{background:rgba(5,10,15,.6)}
 .dlg h2{margin:0;font-size:16px;word-break:break-all}
 .mono{font-family:var(--f-data);font-size:12px;color:var(--muted);white-space:pre-line}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+/* ---------- Cámara (pantalla completa, siempre oscura) ---------- */
+.cam{position:fixed;inset:0;z-index:60;background:#000;color:#f2f5f7;display:grid;grid-template-rows:auto minmax(0,1fr) auto;font-family:var(--f-ui);
+  padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px)}
+.cam-top{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:8px 10px}
+.cam-top .sp{flex:1}
+.cbtn{font:600 13px var(--f-ui);color:#f2f5f7;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.18);border-radius:999px;padding:7px 12px;cursor:pointer;white-space:nowrap}
+.cbtn[aria-pressed="true"]{background:#f0b429;color:#1b1300;border-color:#f0b429}
+.cbtn:focus-visible,.shutter:focus-visible,.cam-thumb:focus-visible{outline:2px solid #f0b429;outline-offset:2px}
+.cchip{font-family:var(--f-data);font-size:12px;padding:5px 10px;border-radius:999px;background:rgba(255,255,255,.1);white-space:nowrap;font-variant-numeric:tabular-nums}
+.cchip.ok{background:rgba(92,194,138,.22);color:#9be3b8}
+.cchip.warn{background:rgba(240,180,41,.22);color:#ffd77a}
+.cchip.bad{background:rgba(255,107,91,.22);color:#ffb0a6}
+.cam-stage{position:relative;min-height:0;overflow:hidden}
+.cam-stage video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000}
+.cam-stage video.mirror{transform:scaleX(-1)}
+.cam-stage canvas{position:absolute;pointer-events:none}
+#camFlash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;transition:opacity .25s}
+#camFlash.on{opacity:.75;transition:none}
+.cam-msg{position:absolute;left:50%;top:12px;transform:translateX(-50%);max-width:calc(100% - 24px);background:rgba(10,14,18,.82);border-radius:8px;padding:8px 12px;font-size:13px;text-align:center}
+.cam-bottom{display:grid;gap:10px;padding:10px 14px 14px;background:linear-gradient(transparent,rgba(0,0,0,.6))}
+.cam-bottom input[type=text]{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;border-radius:8px;padding:9px 11px;font:14px var(--f-ui);width:100%}
+.cam-bottom input[type=text]::placeholder{color:rgba(255,255,255,.55)}
+.cam-row{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:10px}
+.cam-row>:last-child{justify-self:end}
+.shutter{width:74px;height:74px;border-radius:50%;border:4px solid #fff;background:#f0b429;cursor:pointer;box-shadow:0 0 0 3px rgba(0,0,0,.35) inset;transition:transform .08s}
+.shutter:active{transform:scale(.92)}
+.shutter:disabled{opacity:.5}
+.cam-thumb{all:unset;cursor:pointer;width:56px;height:56px;border-radius:10px;border:2px solid rgba(255,255,255,.5);background:#222 center/cover no-repeat;position:relative;display:block}
+.cam-thumb span{position:absolute;right:-8px;top:-8px;min-width:22px;height:22px;border-radius:11px;background:#f0b429;color:#1b1300;font:600 12px var(--f-data);display:grid;place-items:center;padding:0 5px}
+.cam-opts{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;font-size:13px;color:rgba(255,255,255,.85)}
+.cam-opts label{display:flex;gap:6px;align-items:center;cursor:pointer}
+.cam-zoom{display:flex;gap:8px;align-items:center;font:12px var(--f-data)}
+.cam-zoom input{flex:1;accent-color:#f0b429}
+body.camopen{overflow:hidden}
+.native-only{display:none!important}
+html.native .native-only{display:flex!important}
+html.native .native-hide{display:none!important}
+
 </style>
 </head>
 <body>
@@ -132,12 +170,14 @@ dialog::backdrop{background:rgba(5,10,15,.6)}
   <header class="top">
     <h1><small>Fotografías de campo · UTM WGS84</small>Sello de Obra</h1>
     <div class="actions">
-      <button class="btn" id="btnFolder" type="button">Elegir carpeta</button>
+      <button class="btn primary" id="btnCam" type="button">Tomar fotos</button>
+      <button class="btn native-hide" id="btnFolder" type="button">Elegir carpeta</button>
       <button class="btn" id="btnFiles" type="button">Agregar fotos</button>
       <button class="btn danger" id="btnClear" type="button" hidden>Vaciar lista</button>
     </div>
     <input type="file" id="inFolder" webkitdirectory directory multiple hidden>
     <input type="file" id="inFiles" accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp" multiple hidden>
+    <input type="file" id="inCam" accept="image/*" capture="environment" hidden>
     <input type="file" id="inLogo" accept="image/png,image/jpeg,image/webp,image/svg+xml" hidden>
   </header>
 
@@ -311,6 +351,37 @@ dialog::backdrop{background:rgba(5,10,15,.6)}
   </div>
 </div>
 
+<div class="cam" id="cam" hidden role="dialog" aria-label="Cámara">
+  <div class="cam-top">
+    <button class="cbtn" id="camClose" type="button">✕ Cerrar</button>
+    <span class="cchip" id="camGps">Buscando GPS…</span>
+    <span class="cchip" id="camDir" hidden></span>
+    <span class="sp"></span>
+    <button class="cbtn" id="camTorch" type="button" aria-pressed="false" hidden>Linterna</button>
+    <button class="cbtn" id="camGridBtn" type="button" aria-pressed="false">Cuadrícula</button>
+  </div>
+  <div class="cam-stage" id="camStage">
+    <video id="camVideo" playsinline muted autoplay></video>
+    <canvas id="camGrid" hidden></canvas>
+    <canvas id="camOver"></canvas>
+    <div id="camFlash"></div>
+    <div class="cam-msg" id="camMsg" hidden></div>
+  </div>
+  <div class="cam-bottom">
+    <input type="text" id="camDesc" placeholder="Descripción para las próximas fotos (opcional)" autocomplete="off">
+    <div class="cam-zoom" id="camZoomBox" hidden><span>Zoom</span><input type="range" id="camZoom" min="1" max="4" step="0.1" value="1" aria-label="Zoom"><span id="camZoomVal">1,0×</span></div>
+    <div class="cam-row">
+      <button class="cam-thumb" id="camLast" type="button" aria-label="Ver las fotos tomadas"><span id="camCount">0</span></button>
+      <button class="shutter" id="camShot" type="button" aria-label="Tomar foto"></button>
+      <button class="cbtn" id="camFlip" type="button">Cambiar cámara</button>
+    </div>
+    <div class="cam-opts">
+      <label><input type="checkbox" id="camAuto" checked><span id="camAutoTxt">Guardar cada foto con sello en el teléfono</span></label>
+      <label class="native-only"><input type="checkbox" id="camStart">Abrir la cámara al iniciar la app</label>
+    </div>
+  </div>
+</div>
+
 <dialog id="dlg">
   <div class="dlg">
     <div class="view"><canvas id="bigCanvas"></canvas></div>
@@ -329,6 +400,7 @@ dialog::backdrop{background:rgba(5,10,15,.6)}
         <button class="btn primary" type="button" id="oApply">Aplicar</button>
         <button class="btn" type="button" id="oCopy">Copiar descripción y ubicación a las seleccionadas</button>
         <button class="btn" type="button" id="oReset">Restablecer</button>
+        <button class="btn danger" type="button" id="oDel">Quitar de la lista</button>
       </div>
       <div class="btnrow">
         <button class="btn" type="button" id="oPrev">‹ Anterior</button>
@@ -342,6 +414,7 @@ dialog::backdrop{background:rgba(5,10,15,.6)}
 </dialog>
 
 <script src="vendor/exifr.lite.umd.js"></script>
+<script src="vendor/capacitor.js"></script>
 <script src="stamp.js"></script>
 <script>
 (function(){
@@ -512,7 +585,7 @@ async function loadFiles(list,append){
   if(!files.length){msg(heic?"Estas fotos son HEIC (iPhone). Cámbialas a JPG: en el iPhone, Ajustes › Cámara › Formatos › Más compatible.":"No encontré fotos JPG, PNG o WebP en esa selección.",true);return;}
   if(running){msg("Espera a que termine la exportación para agregar fotos.",true);return;}
   files.sort((a,b)=>(a.webkitRelativePath||a.name).localeCompare(b.webkitRelativePath||b.name,"es",{numeric:true}));
-  if(!append||isSample)clearAll();
+  if(isSample)clearAll(false);else if(!append)clearAll(true);
   isSample=false;
   const token=++loadToken;
   const known=new Set(photos.map(p=>p.file&&(p.file.name+"|"+p.file.size+"|"+p.file.lastModified)));
@@ -551,11 +624,12 @@ async function loadFiles(list,append){
       .catch(()=>{p.thumbFail=true;const ph=p.el&&p.el.querySelector(".ph");if(ph)ph.textContent="Sin vista previa";});
   }
 }
-function clearAll(){
+function clearAll(keepCam){
   loadToken++;
-  photos.forEach(p=>{if(p.bmp&&p.bmp.close)p.bmp.close();if(p.el)io.unobserve(p.el);});
-  photos=[];$("grid").innerHTML="";clearParts();Pool.lo.length=0;
-  updateStats();updateButtons();
+  const keep=keepCam?photos.filter(p=>p.cam):[];
+  photos.forEach(p=>{if(keep.includes(p))return;if(p.bmp&&p.bmp.close)p.bmp.close();if(p.el){io.unobserve(p.el);p.el.remove();}});
+  photos=keep;if(!keep.length)$("grid").innerHTML="";clearParts();Pool.lo.length=0;
+  renumber();updateStats();updateButtons();
 }
 
 /* ================= Tarjetas (vista previa liviana) ================= */
@@ -640,7 +714,7 @@ function updateButtons(){
   $("selFailed").hidden=!photos.some(p=>p.failed);
   const has=photos.length>0&&!isSample,busy=!!running;
   $("btnZip").disabled=!has||busy;$("btnDir").disabled=!has||busy;$("btnShare").disabled=!has||busy;
-  $("btnClear").hidden=!has;$("btnFolder").disabled=busy;$("btnFiles").disabled=busy;
+  $("btnClear").hidden=!(has||photos.some(p=>p.cam));$("btnCam").disabled=busy;$("btnFolder").disabled=busy;$("btnFiles").disabled=busy;
 }
 
 /* ================= Nombres de archivo ================= */
@@ -711,11 +785,35 @@ function pointsFiles(list,names,s){
 }
 
 /* ================= Exportar ================= */
-function saveBlob(name,blob){
+/* App Android: guarda en la Galería (fotos) o en Descargas/Sello de Obra (ZIP, CSV, KML) por medio del módulo nativo.
+   Navegador: descarga normal. */
+const NATIVE=!!(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform());
+const Galeria=NATIVE?window.Capacitor.registerPlugin("Galeria"):null;
+if(NATIVE)document.documentElement.classList.add("native");
+let saveChain=Promise.resolve();
+const readB64=b=>new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>{const s=String(r.result);res(s.slice(s.indexOf(",")+1));};r.onerror=()=>rej(r.error||new Error("No se pudo leer"));r.readAsDataURL(b);});
+async function nativeSave(name,blob,dateTaken){
+  const {id}=await Galeria.begin();
+  try{
+    const CH=3*1024*1024;
+    for(let o=0;o<blob.size;o+=CH){await Galeria.append({id,data:await readB64(blob.slice(o,o+CH))});}
+    return await Galeria.finish({id,name,mime:blob.type||(/\.zip$/i.test(name)?"application/zip":/\.jpe?g$/i.test(name)?"image/jpeg":"application/octet-stream"),dateTaken:dateTaken||Date.now()});
+  }catch(e){try{await Galeria.abort({id});}catch(_){}throw e;}
+}
+function saveBlob(name,blob,dateTaken){
+  if(NATIVE){
+    const p=saveChain.then(()=>nativeSave(name,blob,dateTaken));
+    saveChain=p.catch(()=>{});
+    p.catch(e=>msg("No se pudo guardar "+name+": "+((e&&e.message)||e),true));
+    return p;
+  }
   const url=URL.createObjectURL(blob);
   const a=document.createElement("a");a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();
   setTimeout(()=>URL.revokeObjectURL(url),120000);
+  return Promise.resolve();
 }
+const PHOTO_DEST=NATIVE?"la Galería (álbum «Sello de Obra»)":"Descargas";
+const FILE_DEST=NATIVE?"Descargas › Sello de Obra":"Descargas";
 /* Solo se guardan en memoria las 2 últimas partes del ZIP (para volver a descargarlas);
    las anteriores se liberan para no agotar la memoria con miles de fotos. */
 const keptParts=[];
@@ -730,6 +828,7 @@ function addDownload(name,blob){
 function clearParts(){keptParts.forEach(o=>o.blob=null);keptParts.length=0;$("dls").innerHTML="";}
 let wakeLock=null;
 async function keepAwake(on){
+  if(NATIVE){try{await Galeria.keepAwake({on:!!on});}catch(e){}return;}
   try{if(on&&navigator.wakeLock&&!wakeLock){wakeLock=await navigator.wakeLock.request("screen");wakeLock.addEventListener("release",()=>wakeLock=null);}
       else if(!on&&wakeLock){await wakeLock.release();wakeLock=null;}}catch(e){}
 }
@@ -842,7 +941,8 @@ async function exportRun(mode,dirHandle){
       }
       if(mode==="zip")finishPart();
       const el=fmtTime((performance.now()-t0)/1000);
-      if(mode==="zip")msg(okCount+" fotos exportadas en "+el+" · "+partsMade+(partsMade===1?" archivo ZIP":" archivos ZIP")+" en Descargas."+(partsMade>1?" Si el navegador pregunta, permite descargar varios archivos.":""));
+      if(mode==="zip"&&NATIVE){phase="Guardando en el teléfono… ";report();await saveChain;phase="";}
+      if(mode==="zip")msg(okCount+" fotos exportadas en "+el+" · "+partsMade+(partsMade===1?" archivo ZIP":" archivos ZIP")+" en "+FILE_DEST+"."+(partsMade>1&&!NATIVE?" Si el navegador pregunta, permite descargar varios archivos.":""));
       else if(mode==="dir")msg(okCount+" fotos guardadas en la carpeta «"+dirHandle.name+"» en "+el+".");
       else{
         const btn=document.createElement("button");btn.className="btn primary";btn.type="button";btn.textContent="Compartir "+shareFiles.length+" fotos ahora";
@@ -911,7 +1011,7 @@ function applyCurrent(){
   if(current.sel!==$("oSel").checked){current.sel=$("oSel").checked;current.el.querySelector("input").checked=current.sel;renumber();}
   return true;
 }
-$("oApply").addEventListener("click",()=>{if(applyCurrent()){redrawAll(false);dmsg("Cambios aplicados.");}});
+$("oApply").addEventListener("click",()=>{if(applyCurrent()){if(current.camId)CamDB.patch(current.camId,{desc:current.over.desc||""});redrawAll(false);dmsg("Cambios aplicados.");}});
 $("oCopy").addEventListener("click",()=>{
   if(!applyCurrent())return;
   let n=0;for(const p of photos){if(p.sel&&p!==current){if(current.over.desc)p.over.desc=current.over.desc;else delete p.over.desc;if(current.over.ubic)p.over.ubic=current.over.ubic;else delete p.over.ubic;n++;}}
@@ -928,7 +1028,7 @@ $("oSave").addEventListener("click",async()=>{
   if(!current||current.sample)return;applyCurrent();
   const s=S(),p=current;dmsg("Generando…");$("oSave").disabled=true;
   try{const r=await renderFull(p.file,linesFor(infoFor(p,s),s),s,{maxSide:s.maxSide,q:s.q,keepExif:s.keepExif,maxPixels:MAX_PIX});
-    const nm=makeNames([p],s)[0];saveBlob(nm,r.blob);dmsg("Guardada en Descargas: "+nm);}
+    const nm=makeNames([p],s)[0];await saveBlob(nm,r.blob,infoFor(p,s).date?infoFor(p,s).date.getTime():undefined);dmsg("Guardada en "+PHOTO_DEST+": "+nm);}
   catch(e){dmsg("No se pudo generar: "+(e&&e.message||e),true);}
   $("oSave").disabled=false;
 });
@@ -940,7 +1040,13 @@ function showProg(on,cancel){$("prog").hidden=!on;$("btnCancel").hidden=!cancel;
 function setProgress(v,a,b){if(v!=null)$("progBar").style.width=(Math.min(1,v)*100).toFixed(1)+"%";$("progA").textContent=a||"";$("progB").textContent=b||"";}
 $("btnFolder").addEventListener("click",()=>$("inFolder").click());
 $("btnFiles").addEventListener("click",()=>$("inFiles").click());
-$("btnClear").addEventListener("click",()=>{if(running)return;clearAll();initSample();msg("Lista vaciada.");});
+$("btnClear").addEventListener("click",async()=>{
+  if(running)return;
+  const nc=photos.filter(p=>p.cam).length;
+  if(nc&&!window.confirm("Se borrarán también las "+nc+" fotos tomadas con la cámara de la app. ¿Ya las exportaste? Pulsa Aceptar para borrar todo."))return;
+  if(nc)await CamDB.clear();
+  clearAll(false);initSample();msg("Lista vaciada.");
+});
 $("inFolder").addEventListener("change",e=>{if(e.target.files.length)loadFiles(e.target.files,false);e.target.value="";});
 $("inFiles").addEventListener("change",e=>{if(e.target.files.length)loadFiles(e.target.files,true);e.target.value="";});
 $("selAll").addEventListener("click",()=>{photos.forEach(p=>{p.sel=true;if(p.el)p.el.querySelector("input").checked=true;});renumber();redrawAll(false);});
@@ -1056,6 +1162,295 @@ async function initSample(){
   msg("Vista de ejemplo con fotos simuladas. Elige tu carpeta o agrega fotos para empezar.");
 }
 
+/* ================= Fotos de la cámara guardadas en el teléfono (IndexedDB) ================= */
+const CamDB=(()=>{
+  let dbp=null;
+  const open=()=>dbp||(dbp=new Promise((res,rej)=>{
+    if(!("indexedDB" in window)){rej(new Error("sin almacenamiento"));return;}
+    const r=indexedDB.open("sello-de-obra",1);
+    r.onupgradeneeded=()=>{r.result.createObjectStore("capturas",{keyPath:"id"});};
+    r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error);
+  }));
+  const tx=async(mode,fn)=>{const db=await open();return new Promise((res,rej)=>{const t=db.transaction("capturas",mode);const st=t.objectStore("capturas");const out=fn(st);t.oncomplete=()=>res(out&&out.result!==undefined?out.result:undefined);t.onerror=()=>rej(t.error);t.onabort=()=>rej(t.error||new Error("Almacenamiento lleno"));});};
+  return {
+    put:rec=>tx("readwrite",st=>st.put(rec)),
+    del:id=>tx("readwrite",st=>st.delete(id)),
+    clear:()=>tx("readwrite",st=>st.clear()).catch(()=>{}),
+    all:()=>tx("readonly",st=>st.getAll()),
+    patch:async(id,fields)=>{const db=await open();return new Promise(res=>{const t=db.transaction("capturas","readwrite");const st=t.objectStore("capturas");const g=st.get(id);g.onsuccess=()=>{if(g.result)st.put(Object.assign(g.result,fields));};t.oncomplete=res;t.onerror=res;});}
+  };
+})();
+
+function addCaptured(rec){
+  if(isSample)clearAll(false);
+  isSample=false;
+  const f=rec.file;
+  const p={id:photos.length+1,file:f,name:f.name,exif:{date:new Date(rec.meta.t),lat:rec.meta.lat,lon:rec.meta.lon,alt:rec.meta.alt,dir:rec.meta.dir},
+    over:rec.desc?{desc:rec.desc}:{},sel:true,thumb:null,state:"ready",cam:true,camId:rec.id};
+  photos.push(p);renumber();
+  $("grid").appendChild(buildCard(p));
+  makeThumb(f).then(r=>{p.thumb=r.blob;queueCard(p);}).catch(()=>{});
+  updateStats();updateButtons();
+  return p;
+}
+async function restoreCaptures(){
+  let recs=[];try{recs=await CamDB.all();}catch(e){return 0;}
+  if(!recs.length)return 0;
+  recs.sort((a,b)=>a.meta.t-b.meta.t);
+  for(const r of recs){r.file=new File([r.blob],r.name,{type:"image/jpeg",lastModified:r.meta.t});addCaptured(r);}
+  msg(recs.length+" fotos tomadas con la cámara de la app están guardadas en este dispositivo. Expórtalas cuando quieras.");
+  return recs.length;
+}
+
+/* ================= Cámara ================= */
+const Cam={stream:null,track:null,ic:null,facing:"environment",gps:null,gpsWatch:null,head:null,devAngle:0,timer:null,busy:false,shots:0,torch:false,grid:false,lastURL:null,msgT:null};
+const camEl=id=>$(id);
+function camMsg(t,ms){const m=camEl("camMsg");m.textContent=t;m.hidden=!t;clearTimeout(Cam.msgT);if(t&&ms)Cam.msgT=setTimeout(()=>m.hidden=true,ms);}
+
+/* GPS en vivo */
+function startGPS(){
+  if(Cam.gpsWatch!=null||!("geolocation" in navigator))return;
+  Cam.gpsWatch=navigator.geolocation.watchPosition(pos=>{
+    const c=pos.coords;
+    Cam.gps={lat:c.latitude,lon:c.longitude,alt:(c.altitude!=null&&isFinite(c.altitude))?c.altitude:null,acc:c.accuracy,t:Date.now()};
+    paintGPS();
+  },err=>{Cam.gpsErr=err.code===1?"Sin permiso de ubicación":"GPS no disponible";paintGPS();},{enableHighAccuracy:true,maximumAge:1000,timeout:30000});
+}
+function stopGPS(){if(Cam.gpsWatch!=null){navigator.geolocation.clearWatch(Cam.gpsWatch);Cam.gpsWatch=null;}}
+const freshGPS=()=>Cam.gps&&(Date.now()-Cam.gps.t<60000)?Cam.gps:null;
+function paintGPS(){
+  const el=camEl("camGps");if(!el)return;
+  const g=freshGPS();
+  if(!g){el.className="cchip bad";el.textContent=Cam.gpsErr?Cam.gpsErr+" · se usará la coord. general":"Buscando GPS…";return;}
+  const a=Math.round(g.acc);
+  el.className="cchip "+(a<=12?"ok":a<=35?"warn":"bad");
+  el.textContent="GPS ±"+a+" m"+(a>35?" · espera":"");
+}
+
+/* Brújula (dirección hacia donde apunta la cámara) y giro del teléfono */
+function onOrient(e){
+  let h=null;
+  if(typeof e.webkitCompassHeading==="number"){h=e.webkitCompassHeading+(screen.orientation?screen.orientation.angle:(window.orientation||0));}
+  else if(e.absolute&&e.alpha!=null&&e.beta!=null&&e.gamma!=null){
+    const r=Math.PI/180,a=e.alpha*r,b=e.beta*r,g=e.gamma*r;
+    const X=-(Math.cos(a)*Math.sin(g)+Math.sin(a)*Math.sin(b)*Math.cos(g));
+    const Y=-(Math.sin(a)*Math.sin(g)-Math.cos(a)*Math.sin(b)*Math.cos(g));
+    if(Math.hypot(X,Y)>0.25)h=Math.atan2(X,Y)/r;
+  }
+  if(h==null)return;
+  h=((h%360)+360)%360;
+  if(Cam.head==null)Cam.head=h;
+  else{let d=((h-Cam.head+540)%360)-180;Cam.head=((Cam.head+d*0.25)+360)%360;}
+}
+function onMotion(e){
+  const g=e.accelerationIncludingGravity;if(!g||g.x==null)return;
+  let x=g.x,y=g.y;if(isIOS){x=-x;y=-y;}
+  const ax=Math.abs(x),ay=Math.abs(y);
+  if(Math.max(ax,ay)<4)return;
+  let ang=Cam.devAngle;
+  if(ax>ay*1.3)ang=x>0?90:270;else if(ay>ax*1.3)ang=y>0?0:180;
+  Cam.devAngle=ang;
+}
+const screenAngle=()=>screen.orientation&&typeof screen.orientation.angle==="number"?screen.orientation.angle:((window.orientation||0)+360)%360;
+const extraRot=()=>((Cam.devAngle-screenAngle())%360+360)%360;
+async function askSensors(){
+  try{if(typeof DeviceOrientationEvent!=="undefined"&&DeviceOrientationEvent.requestPermission)await DeviceOrientationEvent.requestPermission();}catch(e){}
+  try{if(typeof DeviceMotionEvent!=="undefined"&&DeviceMotionEvent.requestPermission)await DeviceMotionEvent.requestPermission();}catch(e){}
+  window.addEventListener("deviceorientationabsolute",onOrient);
+  window.addEventListener("deviceorientation",onOrient);
+  window.addEventListener("devicemotion",onMotion);
+}
+function dropSensors(){
+  window.removeEventListener("deviceorientationabsolute",onOrient);
+  window.removeEventListener("deviceorientation",onOrient);
+  window.removeEventListener("devicemotion",onMotion);
+}
+
+async function startStream(){
+  stopStream();
+  const v=camEl("camVideo");
+  const tries=[
+    {video:{facingMode:{ideal:Cam.facing},width:{ideal:4032},height:{ideal:3024}},audio:false},
+    {video:{facingMode:{ideal:Cam.facing},width:{ideal:1920},height:{ideal:1440}},audio:false},
+    {video:{facingMode:Cam.facing},audio:false},
+    {video:true,audio:false}];
+  let err=null;
+  for(const c of tries){try{Cam.stream=await navigator.mediaDevices.getUserMedia(c);break;}catch(e){err=e;if(e&&(e.name==="NotAllowedError"||e.name==="SecurityError"))break;}}
+  if(!Cam.stream)throw err||new Error("Sin cámara");
+  Cam.track=Cam.stream.getVideoTracks()[0];
+  v.srcObject=Cam.stream;v.classList.toggle("mirror",Cam.facing==="user");
+  await v.play().catch(()=>{});
+  await new Promise(r=>{if(v.videoWidth)r();else v.onloadedmetadata=()=>r();setTimeout(r,3000);});
+  Cam.ic=null;try{if("ImageCapture" in window)Cam.ic=new ImageCapture(Cam.track);}catch(e){}
+  let caps={};try{caps=Cam.track.getCapabilities?Cam.track.getCapabilities():{};}catch(e){}
+  camEl("camTorch").hidden=!caps.torch;Cam.torch=false;camEl("camTorch").setAttribute("aria-pressed","false");
+  const zb=camEl("camZoomBox"),z=camEl("camZoom");
+  if(caps.zoom&&caps.zoom.max>caps.zoom.min){zb.hidden=false;z.min=caps.zoom.min;z.max=Math.min(caps.zoom.max,10);z.step=caps.zoom.step||0.1;
+    let cur=caps.zoom.min;try{cur=Cam.track.getSettings().zoom||cur;}catch(e){}z.value=cur;camEl("camZoomVal").textContent=(+cur).toFixed(1).replace(".",",")+"×";}
+  else zb.hidden=true;
+  layoutOverlay();
+}
+function stopStream(){if(Cam.stream){Cam.stream.getTracks().forEach(t=>t.stop());Cam.stream=null;Cam.track=null;Cam.ic=null;}const v=camEl("camVideo");if(v)v.srcObject=null;}
+
+/* Rectángulo real del video dentro de la pantalla (object-fit: contain) */
+function videoRect(){
+  const st=camEl("camStage").getBoundingClientRect(),v=camEl("camVideo");
+  const vw=v.videoWidth||4,vh=v.videoHeight||3,k=Math.min(st.width/vw,st.height/vh);
+  const w=vw*k,h=vh*k;return {x:(st.width-w)/2,y:(st.height-h)/2,w,h};
+}
+function layoutOverlay(){
+  const r=videoRect(),dpr=Math.min(2,window.devicePixelRatio||1);
+  for(const id of ["camOver","camGrid"]){
+    const c=camEl(id);c.style.left=r.x+"px";c.style.top=r.y+"px";c.style.width=r.w+"px";c.style.height=r.h+"px";
+    c.width=Math.max(1,Math.round(r.w*dpr));c.height=Math.max(1,Math.round(r.h*dpr));
+  }
+  const g=camEl("camGrid"),gc=g.getContext("2d");gc.clearRect(0,0,g.width,g.height);
+  gc.strokeStyle="rgba(255,255,255,.45)";gc.lineWidth=Math.max(1,dpr);
+  for(let i=1;i<3;i++){gc.beginPath();gc.moveTo(g.width*i/3,0);gc.lineTo(g.width*i/3,g.height);gc.moveTo(0,g.height*i/3);gc.lineTo(g.width,g.height*i/3);gc.stroke();}
+  drawOverlay();
+}
+function liveMeta(){
+  const g=freshGPS();
+  return {t:Date.now(),lat:g?g.lat:null,lon:g?g.lon:null,alt:g?g.alt:null,acc:g?g.acc:null,dir:Cam.facing==="environment"&&Cam.head!=null?Math.round(Cam.head):null};
+}
+function previewPhoto(meta){
+  const s=S();
+  let n=s.numStart;if(!isSample)for(const p of photos)if(p.sel&&p.num!=null)n=Math.max(n,p.num+1);
+  return {exif:{date:new Date(meta.t),lat:meta.lat,lon:meta.lon,alt:meta.alt,dir:meta.dir},over:camEl("camDesc").value.trim()?{desc:camEl("camDesc").value.trim()}:{},num:n,file:null};
+}
+function drawOverlay(){
+  const c=camEl("camOver");if(!c||camEl("cam").hidden)return;
+  const ctx=c.getContext("2d");ctx.clearRect(0,0,c.width,c.height);
+  const s=S(),meta=liveMeta(),info=infoFor(previewPhoto(meta),s);
+  const rot=extraRot();
+  ctx.save();
+  let W=c.width,H=c.height;
+  if(rot){ctx.translate(W/2,H/2);ctx.rotate(-rot*Math.PI/180);if(rot===90||rot===270){[W,H]=[H,W];}ctx.translate(-W/2,-H/2);}
+  Sello.stamp(ctx,W,H,linesFor(info,s),s,logo);
+  ctx.restore();
+  const d=camEl("camDir");
+  if(meta.dir!=null){d.hidden=false;d.textContent=meta.dir+"° "+dirName(meta.dir);}else d.hidden=true;
+}
+
+async function openCamera(){
+  if(running){msg("Espera a que termine la exportación.",true);return;}
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia||!window.isSecureContext){
+    startGPS();$("inCam").click();return;
+  }
+  const el=camEl("cam");el.hidden=false;document.body.classList.add("camopen");
+  try{history.pushState({cam:1},"");}catch(e){}
+  camMsg("Abriendo cámara…");
+  askSensors();startGPS();paintGPS();keepAwake(true);
+  try{await startStream();camMsg("");}
+  catch(e){
+    closeCamera(true);
+    if(e&&e.name==="NotAllowedError")msg("La app no tiene permiso para usar la cámara. Actívalo en el candado de la barra de direcciones (Permisos › Cámara) y vuelve a intentar. Mientras tanto se abrirá la cámara del teléfono.",true);
+    else msg("No se pudo abrir la cámara dentro de la app ("+((e&&e.message)||e)+"). Se abrirá la cámara del teléfono.",true);
+    $("inCam").click();return;
+  }
+  clearInterval(Cam.timer);Cam.timer=setInterval(()=>{drawOverlay();paintGPS();},500);
+  window.addEventListener("resize",layoutOverlay);
+  camEl("camShot").focus();
+}
+function closeCamera(fromError){
+  clearInterval(Cam.timer);Cam.timer=null;
+  window.removeEventListener("resize",layoutOverlay);
+  stopStream();dropSensors();stopGPS();
+  if(!running)keepAwake(false);
+  camEl("cam").hidden=true;document.body.classList.remove("camopen");
+  if(!fromError&&history.state&&history.state.cam){try{history.back();}catch(e){}}
+  if(Cam.shots){msg(Cam.shots+" fotos tomadas en esta sesión. Están en la lista; puedes revisarlas, editarlas y exportarlas.");Cam.shots=0;setTimeout(()=>$("msg").scrollIntoView({block:"start",behavior:"smooth"}),200);}
+}
+window.addEventListener("popstate",()=>{if(!camEl("cam").hidden)closeCamera(true);});
+
+function withTimeout(p,ms){return Promise.race([p,new Promise((_,rej)=>setTimeout(()=>rej(new Error("tiempo agotado")),ms))]);}
+async function grabImage(){
+  const v=camEl("camVideo");
+  const vLand=v.videoWidth>v.videoHeight;
+  if(Cam.ic&&Cam.facing==="environment"){
+    try{
+      const blob=await withTimeout(Cam.ic.takePhoto(),5000);
+      const bmp=await Sello.decode(blob);
+      if((bmp.width>bmp.height)===vLand&&bmp.width>=v.videoWidth*0.9)return bmp;
+      bmp.close&&bmp.close();
+    }catch(e){}
+  }
+  return await createImageBitmap(v);
+}
+async function shoot(){
+  if(Cam.busy||!Cam.stream)return;
+  Cam.busy=true;camEl("camShot").disabled=true;
+  const meta=liveMeta(),desc=camEl("camDesc").value.trim(),rot=extraRot();
+  const fl=camEl("camFlash");fl.classList.add("on");setTimeout(()=>fl.classList.remove("on"),60);
+  try{navigator.vibrate&&navigator.vibrate(25);}catch(e){}
+  let bmp;
+  try{bmp=await grabImage();}catch(e){camMsg("No se pudo tomar la foto: "+((e&&e.message)||e),4000);Cam.busy=false;camEl("camShot").disabled=false;return;}
+  Cam.busy=false;camEl("camShot").disabled=false;
+  try{
+    const sw=bmp.width,sh=bmp.height,swap=rot===90||rot===270;
+    const c=document.createElement("canvas");c.width=swap?sh:sw;c.height=swap?sw:sh;
+    const ctx=c.getContext("2d");
+    if(rot){ctx.translate(c.width/2,c.height/2);ctx.rotate(-rot*Math.PI/180);ctx.drawImage(bmp,-sw/2,-sh/2);}
+    else ctx.drawImage(bmp,0,0);
+    bmp.close&&bmp.close();
+    const jpg=await Sello.canvasToBlob(c,"image/jpeg",0.93);c.width=c.height=0;
+    const u8=new Uint8Array(await jpg.arrayBuffer());
+    const blob=Sello.withApp1(u8,Sello.buildExif({date:new Date(meta.t),lat:meta.lat,lon:meta.lon,alt:meta.alt,dir:meta.dir,acc:meta.acc}));
+    const d=new Date(meta.t);
+    const name="OBRA_"+d.getFullYear()+pad(d.getMonth()+1)+pad(d.getDate())+"_"+pad(d.getHours())+pad(d.getMinutes())+pad(d.getSeconds())+"_"+pad(d.getMilliseconds(),3).slice(0,2)+".jpg";
+    const rec={id:"c"+meta.t+"_"+Math.random().toString(36).slice(2,6),name,blob,meta,desc};
+    let stored=true;
+    try{await CamDB.put(rec);}catch(e){stored=false;camMsg("El teléfono no tiene espacio para guardar más fotos en la app. Exporta y vacía la lista.",6000);}
+    rec.file=new File([blob],name,{type:"image/jpeg",lastModified:meta.t});
+    const p=addCaptured(rec);if(!stored)p.camId=null;
+    Cam.shots++;camEl("camCount").textContent=photos.filter(x=>x.cam).length;
+    if(Cam.lastURL)URL.revokeObjectURL(Cam.lastURL);
+    makeThumb(rec.file).then(r=>{Cam.lastURL=URL.createObjectURL(r.blob);camEl("camLast").style.backgroundImage="url("+Cam.lastURL+")";}).catch(()=>{});
+    if(!meta.lat)camMsg("Foto sin GPS: se usará la coordenada general.",2500);
+    if(camEl("camAuto").checked){
+      const s=S();renumber();
+      renderFull(rec.file,linesFor(infoFor(p,s),s),s,{maxSide:s.maxSide,q:s.q,keepExif:true,maxPixels:MAX_PIX})
+        .then(r=>saveBlob(makeNames([p],s)[0],r.blob,meta.t))
+        .catch(e=>camMsg("La foto quedó en la lista, pero no se pudo guardar con sello: "+((e&&e.message)||e),5000));
+    }
+  }catch(e){camMsg("No se pudo procesar la foto: "+((e&&e.message)||e),5000);}
+}
+
+camEl("camShot").addEventListener("click",shoot);
+camEl("camClose").addEventListener("click",()=>closeCamera(false));
+camEl("camLast").addEventListener("click",()=>{const last=[...photos].reverse().find(p=>p.cam);closeCamera(false);if(last)setTimeout(()=>{last.el&&last.el.scrollIntoView({block:"center"});},300);});
+camEl("camFlip").addEventListener("click",async()=>{Cam.facing=Cam.facing==="environment"?"user":"environment";camMsg("Cambiando cámara…");try{await startStream();camMsg("");}catch(e){camMsg("No se pudo cambiar de cámara.",3000);}});
+camEl("camTorch").addEventListener("click",async()=>{if(!Cam.track)return;Cam.torch=!Cam.torch;try{await Cam.track.applyConstraints({advanced:[{torch:Cam.torch}]});}catch(e){Cam.torch=false;}camEl("camTorch").setAttribute("aria-pressed",String(Cam.torch));});
+camEl("camGridBtn").addEventListener("click",()=>{Cam.grid=!Cam.grid;camEl("camGrid").hidden=!Cam.grid;camEl("camGridBtn").setAttribute("aria-pressed",String(Cam.grid));try{localStorage.setItem("sello.grid",Cam.grid?"1":"0");}catch(e){}});
+camEl("camZoom").addEventListener("input",async e=>{const v=+e.target.value;camEl("camZoomVal").textContent=v.toFixed(1).replace(".",",")+"×";try{await Cam.track.applyConstraints({advanced:[{zoom:v}]});}catch(err){}});
+camEl("camDesc").addEventListener("input",()=>{drawOverlay();try{localStorage.setItem("sello.camDesc",camEl("camDesc").value);}catch(e){}});
+camEl("camDesc").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();camEl("camDesc").blur();}});
+camEl("camAuto").addEventListener("change",()=>{try{localStorage.setItem("sello.camAuto",camEl("camAuto").checked?"1":"0");}catch(e){}});
+document.addEventListener("keydown",e=>{if(camEl("cam").hidden)return;if(e.target.tagName==="INPUT")return;if(e.key===" "||e.key==="Enter"||e.key==="AudioVolumeUp"||e.key==="AudioVolumeDown"){e.preventDefault();shoot();}if(e.key==="Escape")closeCamera(false);});
+document.addEventListener("visibilitychange",()=>{if(camEl("cam").hidden)return;if(document.visibilityState==="hidden")stopStream();else startStream().catch(()=>camMsg("Toca «Cambiar cámara» para reactivar la cámara.",4000));});
+try{camEl("camAuto").checked=localStorage.getItem("sello.camAuto")!=="0";camEl("camDesc").value=localStorage.getItem("sello.camDesc")||"";Cam.grid=localStorage.getItem("sello.grid")==="1";camEl("camGrid").hidden=!Cam.grid;camEl("camGridBtn").setAttribute("aria-pressed",String(Cam.grid));}catch(e){}
+$("btnCam").addEventListener("click",openCamera);
+
+/* Cámara del teléfono (respaldo): si la foto llega sin GPS, se usa la ubicación en vivo */
+$("inCam").addEventListener("change",async e=>{
+  const files=[...e.target.files];e.target.value="";if(!files.length)return;
+  const g=freshGPS(),t=Date.now();
+  await loadFiles(files,true);
+  for(const p of photos){if(files.includes(p.file)&&p.exif&&p.exif.lat==null&&g){p.exif.lat=g.lat;p.exif.lon=g.lon;p.exif.alt=g.alt;if(!p.exif.date)p.exif.date=new Date(t);refreshTags(p);}}
+  redrawAll(false);
+});
+
+/* Quitar una foto de la lista (y del teléfono si es de la cámara) */
+$("oDel").addEventListener("click",async()=>{
+  if(!current)return;const p=current;
+  if(p.cam&&!window.confirm("Esta foto se tomó con la cámara de la app y se borrará del teléfono. ¿Continuar?"))return;
+  if(p.camId)await CamDB.del(p.camId).catch(()=>{});
+  const i=photos.indexOf(p);if(i>=0)photos.splice(i,1);
+  if(p.el){io.unobserve(p.el);p.el.remove();}if(p.bmp&&p.bmp.close)p.bmp.close();
+  $("dlg").close();renumber();redrawAll(false);updateStats();updateButtons();
+  if(!photos.length)initSample();
+});
+
 /* ================= Instalación, actualización y modo sin conexión ================= */
 let installEvt=null;
 const isStandalone=()=>matchMedia("(display-mode: standalone)").matches||navigator.standalone===true;
@@ -1063,7 +1458,7 @@ window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();installEvt=
 $("btnInstall").addEventListener("click",async()=>{if(!installEvt)return;installEvt.prompt();try{const r=await installEvt.userChoice;if(r.outcome==="accepted")$("installBar").hidden=true;}catch(e){}installEvt=null;});
 $("btnInstallX").addEventListener("click",()=>{$("installBar").hidden=true;try{localStorage.setItem("sello.noInstall","1");}catch(e){}});
 window.addEventListener("appinstalled",()=>{$("installBar").hidden=true;msg("App instalada. Ábrela desde tu escritorio o pantalla de inicio.");});
-if("serviceWorker" in navigator&&location.protocol!=="file:"){
+if(!NATIVE&&"serviceWorker" in navigator&&location.protocol!=="file:"){
   const had=!!navigator.serviceWorker.controller;
   navigator.serviceWorker.addEventListener("controllerchange",()=>{if(had)$("updateBar").hidden=false;});
   window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").then(r=>r.update&&r.update()).catch(()=>{}));
@@ -1090,7 +1485,19 @@ if("showDirectoryPicker" in window&&!isMobile)$("btnDir").hidden=false;
 try{if(navigator.canShare&&navigator.canShare({files:[new File(["x"],"x.jpg",{type:"image/jpeg"})]})&&isMobile)$("btnShare").hidden=false;}catch(e){}
 if(isMobile||innerWidth<880)document.querySelectorAll("details.sec").forEach((d,i)=>{if(i>0)d.open=false;});
 loadSettings();syncUI();updateStats();
-initPool().finally(()=>{takeShared().then(got=>{if(!got&&!photos.length)initSample();});});
+initPool().finally(async()=>{
+  const n=await restoreCaptures();
+  if(NATIVE){
+    $("camAutoTxt").textContent="Guardar cada foto con sello en la Galería";
+    let st=true;try{st=localStorage.getItem("sello.camStart")!=="0";}catch(e){}
+    $("camStart").checked=st;
+    $("camStart").addEventListener("change",()=>{try{localStorage.setItem("sello.camStart",$("camStart").checked?"1":"0");}catch(e){}});
+    if(st)setTimeout(openCamera,300);
+  }
+  const got=await takeShared();
+  if(!got&&!n&&!photos.length)initSample();
+  try{if(navigator.storage&&navigator.storage.persist)navigator.storage.persist();}catch(e){}
+});
 if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>redrawAll(false));
 })();
 </script>

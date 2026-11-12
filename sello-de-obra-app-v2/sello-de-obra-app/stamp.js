@@ -241,5 +241,68 @@
     return { blob: new Blob(parts, { type: "image/jpeg" }), crc, size, w, h };
   };
 
+  /* ---------- EXIF propio para fotos tomadas con la cámara de la app ---------- */
+  /* meta: {date, lat, lon, alt, dir, acc, tz} → segmento APP1 (FFE1 ... "Exif\0\0" + TIFF) */
+  Sello.buildExif = function (meta) {
+    const ascii = s => { const a = []; for (const ch of s) a.push(ch.charCodeAt(0) & 0x7f); a.push(0); return a; };
+    const rat = (v, den) => [Math.round(v * den), den];
+    const dms = v => { v = Math.abs(v); const d = Math.floor(v), mf = (v - d) * 60, m = Math.floor(mf), s = (mf - m) * 60; return [[d, 1], [m, 1], rat(s, 10000)]; };
+    const d = meta.date || new Date();
+    const ds = d.getFullYear() + ":" + pad(d.getMonth() + 1) + ":" + pad(d.getDate()) + " " + pad(d.getHours()) + ":" + pad(d.getMinutes()) + ":" + pad(d.getSeconds());
+    const off = -d.getTimezoneOffset(), tz = (off >= 0 ? "+" : "-") + pad(Math.floor(Math.abs(off) / 60)) + ":" + pad(Math.abs(off) % 60);
+    // type: 1 BYTE, 2 ASCII, 3 SHORT, 4 LONG, 5 RATIONAL
+    const ifd0 = [
+      [0x010F, 2, ascii("Sello de Obra")], [0x0110, 2, ascii("Camara web")], [0x0112, 3, [1]],
+      [0x0131, 2, ascii("Sello de Obra")], [0x0132, 2, ascii(ds)], [0x8769, 4, [0]]
+    ];
+    const exif = [[0x9003, 2, ascii(ds)], [0x9004, 2, ascii(ds)], [0x9011, 2, ascii(tz)]];
+    let gps = null;
+    if (meta.lat != null && meta.lon != null) {
+      gps = [[0x0000, 1, [2, 3, 0, 0]], [0x0001, 2, ascii(meta.lat < 0 ? "S" : "N")], [0x0002, 5, dms(meta.lat)],
+        [0x0003, 2, ascii(meta.lon < 0 ? "W" : "E")], [0x0004, 5, dms(meta.lon)]];
+      if (meta.alt != null && isFinite(meta.alt)) gps.push([0x0005, 1, [meta.alt < 0 ? 1 : 0]], [0x0006, 5, [rat(Math.abs(meta.alt), 100)]]);
+      if (meta.dir != null && isFinite(meta.dir)) gps.push([0x0010, 2, ascii("M")], [0x0011, 5, [rat(((meta.dir % 360) + 360) % 360, 100)]]);
+      if (meta.acc != null && isFinite(meta.acc)) gps.push([0x001F, 5, [rat(meta.acc, 100)]]);
+      ifd0.push([0x8825, 4, [0]]);
+    }
+    const size = (t, v) => ({ 1: 1, 2: 1, 3: 2, 4: 4, 5: 8 }[t]) * v.length;
+    const ifdLen = list => 2 + list.length * 12 + 4 + list.reduce((a, [, t, v]) => a + (size(t, v) > 4 ? size(t, v) + (size(t, v) & 1) : 0), 0);
+    const o0 = 8, oE = o0 + ifdLen(ifd0), oG = oE + ifdLen(exif), total = oG + (gps ? ifdLen(gps) : 0);
+    ifd0.find(e => e[0] === 0x8769)[2] = [oE];
+    if (gps) ifd0.find(e => e[0] === 0x8825)[2] = [oG];
+    const buf = new Uint8Array(total), dv = new DataView(buf.buffer);
+    buf.set([0x49, 0x49, 0x2A, 0x00]); dv.setUint32(4, 8, true);
+    function writeIFD(list, at) {
+      list.sort((a, b) => a[0] - b[0]);
+      dv.setUint16(at, list.length, true);
+      let data = at + 2 + list.length * 12 + 4;
+      list.forEach(([tag, t, v], i) => {
+        const e = at + 2 + i * 12, n = t === 5 ? v.length : v.length, sz = size(t, v);
+        dv.setUint16(e, tag, true); dv.setUint16(e + 2, t, true); dv.setUint32(e + 4, n, true);
+        let p = e + 8;
+        if (sz > 4) { dv.setUint32(e + 8, data, true); p = data; data += sz + (sz & 1); }
+        for (const x of v) {
+          if (t === 1 || t === 2) { buf[p] = x; p += 1; }
+          else if (t === 3) { dv.setUint16(p, x, true); p += 2; }
+          else if (t === 4) { dv.setUint32(p, x, true); p += 4; }
+          else { dv.setUint32(p, x[0], true); dv.setUint32(p + 4, x[1], true); p += 8; }
+        }
+      });
+      dv.setUint32(at + 2 + list.length * 12, 0, true);
+    }
+    writeIFD(ifd0, o0); writeIFD(exif, oE); if (gps) writeIFD(gps, oG);
+    const seg = new Uint8Array(4 + 6 + total);
+    const L = 2 + 6 + total;
+    seg.set([0xFF, 0xE1, (L >> 8) & 0xFF, L & 0xFF, 0x45, 0x78, 0x69, 0x66, 0, 0]); seg.set(buf, 10);
+    return seg;
+  };
+  /* Inserta un APP1 en un JPEG (reemplaza el bloque JFIF del inicio, si existe) */
+  Sello.withApp1 = function (u8, app1) {
+    if (u8[0] !== 0xFF || u8[1] !== 0xD8) return new Blob([u8], { type: "image/jpeg" });
+    let j = 2;
+    if (u8[2] === 0xFF && u8[3] === 0xE0) j = 4 + ((u8[4] << 8) | u8[5]);
+    return new Blob([u8.subarray(0, 2), app1, u8.subarray(j)], { type: "image/jpeg" });
+  };
+
   G.Sello = Sello;
 })(typeof self !== "undefined" ? self : this);

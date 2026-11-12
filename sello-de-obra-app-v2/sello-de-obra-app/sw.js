@@ -1,5 +1,5 @@
 /* Sello de Obra — service worker: funciona sin conexión y recibe fotos compartidas */
-const VERSION = "sello-v3";
+const VERSION = "sello-v5";
 const FILES = [
   "./",
   "index.html",
@@ -7,6 +7,7 @@ const FILES = [
   "stamp.js",
   "worker.js",
   "vendor/exifr.lite.umd.js",
+  "vendor/capacitor.js",
   "fonts/archivo-latin-400-normal.woff2",
   "fonts/archivo-latin-400-italic.woff2",
   "fonts/archivo-latin-500-normal.woff2",
