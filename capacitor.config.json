@@ -1,0 +1,13 @@
+{
+  "appId": "com.erickhc.sellodeobra",
+  "appName": "Sello de Obra",
+  "webDir": "www",
+  "android": {
+    "allowMixedContent": false,
+    "captureInput": true,
+    "webContentsDebuggingEnabled": false
+  },
+  "server": {
+    "androidScheme": "https"
+  }
+}
