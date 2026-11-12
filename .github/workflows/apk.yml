@@ -4,54 +4,74 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths:
-      - 'android-app/**'
-      - 'sello-de-obra-app-v2/sello-de-obra-app/**'
-      - '.github/workflows/apk.yml'
 
 permissions:
   contents: write
 
-env:
-  WEB_DIR: sello-de-obra-app-v2/sello-de-obra-app
-
 jobs:
   apk:
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: android-app
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - name: Buscar las carpetas del proyecto
+        run: |
+          CFG=$(find . -name capacitor.config.json -not -path '*/node_modules/*' -not -path '*/assets/*' | head -1)
+          if [ -z "$CFG" ]; then
+            echo "::error::No encontré la carpeta android-app en el repositorio. Súbela (la carpeta completa) a la página principal del repositorio."
+            exit 1
+          fi
+          APP=$(dirname "$CFG")
+          WEB=""
+          for f in $(find . -name stamp.js -not -path '*/node_modules/*' -not -path "$APP/*"); do
+            d=$(dirname "$f")
+            if [ -f "$d/index.html" ] && [ -f "$d/worker.js" ]; then
+              if [ -f "$d/vendor/capacitor.js" ]; then WEB="$d"; break; fi
+              [ -z "$WEB" ] && WEB="$d"
+            fi
+          done
+          if [ -z "$WEB" ]; then
+            echo "::error::No encontré la app web (index.html, stamp.js y worker.js) en el repositorio."
+            exit 1
+          fi
+          if [ ! -f "$WEB/vendor/capacitor.js" ]; then
+            echo "::error::Falta vendor/capacitor.js en $WEB. Sube la carpeta vendor de web-cambiados a esa carpeta."
+            exit 1
+          fi
+          echo "Proyecto Android: $APP"
+          echo "App web: $WEB"
+          echo "APP=$APP" >> "$GITHUB_ENV"
+          echo "WEB=$WEB" >> "$GITHUB_ENV"
+
+      - uses: actions/setup-node@v5
         with:
           node-version: 20
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 17
 
       - name: Copiar la app web
         run: |
-          rm -rf www && mkdir www
-          cp -r "../${WEB_DIR}/." www/
-          rm -f www/LEEME.txt
+          rm -rf "$APP/www" && mkdir "$APP/www"
+          cp -r "$WEB/." "$APP/www/"
+          rm -f "$APP/www/LEEME.txt"
 
       - name: Instalar Capacitor y sincronizar
+        working-directory: ${{ env.APP }}
         run: |
           npm ci --no-audit --no-fund
           npx cap sync android
 
       - name: Compilar APK
-        working-directory: android-app/android
+        working-directory: ${{ env.APP }}/android
         env:
           BUILD_NUMBER: ${{ github.run_number }}
         run: |
           chmod +x gradlew
           ./gradlew assembleRelease --no-daemon --stacktrace
-          cp app/build/outputs/apk/release/app-release.apk ../../Sello-de-Obra.apk
+          cp app/build/outputs/apk/release/app-release.apk "$GITHUB_WORKSPACE/Sello-de-Obra.apk"
 
       - uses: actions/upload-artifact@v4
         with:
@@ -66,4 +86,3 @@ jobs:
           body: Descarga **Sello-de-Obra.apk** desde el celular e instálala.
           files: Sello-de-Obra.apk
           make_latest: true
-  
